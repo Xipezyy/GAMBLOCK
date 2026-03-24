@@ -24,7 +24,6 @@ Works with most VPNs. Survives browser changes. Requires 100 typed passwords to 
 ## Requirements
 
 - Windows 10 or 11
-- Python 3.8 or later — [python.org/downloads](https://www.python.org/downloads/)
 
 ---
 
@@ -32,17 +31,15 @@ Works with most VPNs. Survives browser changes. Requires 100 typed passwords to 
 
 **1. Download GAMBLOCK**
 
-Click the green **Code** button → **Download ZIP** → extract it anywhere (Desktop is fine).
+Download `GAMBLOCK_Setup.exe` from the [Releases](https://github.com/Xipezyy/GAMBLOCK/releases/latest) page.
 
 **2. Run the installer**
 
-Right-click `install.bat` → **Run as administrator**
-
-This installs the required Python dependency and confirms your setup is ready.
+Double-click `GAMBLOCK_Setup.exe` and follow the setup wizard. It installs GAMBLOCK to Program Files and creates a desktop shortcut.
 
 **3. Activate GAMBLOCK**
 
-Right-click `site_blocker.bat` → **Run as administrator** → choose **1. Activate blocker**
+Open **GAMBLOCK** (right-click → Run as administrator if prompted) → choose **1. Activate blocker**
 
 GAMBLOCK will:
 - Block all sites in the list (+ every subdomain)
@@ -60,7 +57,7 @@ Do one of these — don't skip this step:
 
 ## Usage
 
-Right-click `site_blocker.bat` → Run as administrator
+Open **GAMBLOCK** (right-click → Run as administrator if prompted)
 
 ```
   1. Activate blocker
@@ -102,7 +99,7 @@ All `www.` variants and every subdomain are blocked automatically.
 
 ## Unblocking
 
-Open `site_blocker.bat` as administrator → choose **2. Unblock**
+Open **GAMBLOCK** as administrator → choose **2. Unblock**
 
 You will be asked to type all 100 passwords in order. There is no way around this without the password list. This is intentional.
 
