@@ -1,0 +1,15 @@
+# Runtime files — never commit these
+config.json
+user_sites.txt
+*.pem
+BLOCKER_PASSWORDS.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
