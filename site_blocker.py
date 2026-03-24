@@ -15,6 +15,7 @@ import random
 import string
 import subprocess
 import sys
+import winreg
 from pathlib import Path
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
@@ -36,7 +37,15 @@ CA_KEY_FILE     = DATA_DIR / "ca_key.pem"
 SITE_CERT_FILE  = DATA_DIR / "site_cert.pem"
 SITE_KEY_FILE   = DATA_DIR / "site_key.pem"
 USER_SITES_FILE = DATA_DIR / "user_sites.txt"
-PASSWORDS_FILE  = Path(os.path.expanduser("~")) / "OneDrive" / "Desktop" / "GAMBLOCK_PASSWORDS.txt"
+def _get_desktop() -> Path:
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders") as key:
+            return Path(winreg.QueryValueEx(key, "Desktop")[0])
+    except Exception:
+        return Path(os.path.expanduser("~")) / "Desktop"
+
+PASSWORDS_FILE  = _get_desktop() / "GAMBLOCK_PASSWORDS.txt"
 
 HOSTS_FILE   = r"C:\Windows\System32\drivers\etc\hosts"
 MARKER_START = "# === SITE BLOCKER START ==="
@@ -96,7 +105,7 @@ def is_admin() -> bool:
 def require_admin():
     if not is_admin():
         print("[ERROR] Must be run as Administrator.")
-        print("  Right-click site_blocker.bat → 'Run as administrator'.")
+        print("  Right-click GAMBLOCK.exe → 'Run as administrator'.")
         input("\nPress Enter to exit...")
         sys.exit(1)
 
@@ -338,7 +347,7 @@ def cmd_block():
              "-" * 62, ""]
     for i, p in enumerate(passwords, 1):
         lines.append(f"  {i:>3}.  {p}")
-    lines += ["", "-" * 62, "  site_blocker.py"]
+    lines += ["", "-" * 62, "  GAMBLOCK — gamblock.xyz"]
     PASSWORDS_FILE.write_text("\n".join(lines), encoding="utf-8")
 
     print("\n" + "=" * 62)
