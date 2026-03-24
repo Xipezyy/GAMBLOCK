@@ -1,6 +1,6 @@
-# You Said You'd Quit
+# GAMBLOCK
 
-A self-imposed gambling site blocker for Windows. When you visit a blocked site, instead of loading it, your browser shows:
+A self-imposed crypto casino blocker for Windows. When you visit a blocked site, instead of loading it, your browser shows:
 
 > **YOU SAID YOU'D QUIT!**
 > ENTER PASSWORDS 0 / 100
@@ -30,7 +30,7 @@ Works with most VPNs. Survives browser changes. Requires 100 typed passwords to 
 
 ## Installation
 
-**1. Download this repository**
+**1. Download GAMBLOCK**
 
 Click the green **Code** button → **Download ZIP** → extract it anywhere (Desktop is fine).
 
@@ -38,23 +38,23 @@ Click the green **Code** button → **Download ZIP** → extract it anywhere (De
 
 Right-click `install.bat` → **Run as administrator**
 
-This installs the required Python dependency (`cryptography`) and confirms your setup is ready.
+This installs the required Python dependency and confirms your setup is ready.
 
-**3. Activate the blocker**
+**3. Activate GAMBLOCK**
 
 Right-click `site_blocker.bat` → **Run as administrator** → choose **1. Activate blocker**
 
-The blocker will:
+GAMBLOCK will:
 - Block all sites in the list (+ every subdomain)
-- Generate 100 random passwords and save them to your Desktop as `BLOCKER_PASSWORDS.txt`
+- Generate 100 random passwords and save them to your Desktop as `GAMBLOCK_PASSWORDS.txt`
 - Install a background server that persists across reboots
 
 **4. Secure the passwords**
 
 Do one of these — don't skip this step:
-- Email `BLOCKER_PASSWORDS.txt` to a trusted friend or family member, then delete it
+- Email `GAMBLOCK_PASSWORDS.txt` to a trusted friend or family member, then delete it
 - Print it and physically destroy the digital copy
-- Put it in a password manager you don't have easy access to
+- Put it somewhere you genuinely cannot easily access
 
 ---
 
@@ -74,8 +74,8 @@ Right-click `site_blocker.bat` → Run as administrator
 
 Choose option **3** and enter the domain (e.g. `newcasino.com`).
 
-- If the blocker is **active**: the site is blocked immediately
-- If the blocker is **inactive**: the site is saved and will be blocked on next activation
+- If GAMBLOCK is **active**: the site is blocked immediately
+- If GAMBLOCK is **inactive**: the site is saved and will be blocked on next activation
 - Sites can be added but **never removed** without the 100 passwords
 
 ---
@@ -120,10 +120,10 @@ Blocked. The path after the domain is irrelevant — the block happens at the DN
 Blocked. The local DNS server catches all `*.stake.com` variants automatically.
 
 **Can I remove a site from the list?**
-Not while the blocker is active. You must unblock (100 passwords) to change the site list, then reactivate.
+Not while GAMBLOCK is active. You must unblock (100 passwords) to change the site list, then reactivate.
 
 **What if I reinstall Windows?**
-The blocker would be removed. If you're serious about this, give your password list to someone else — that way unblocking requires their cooperation too.
+GAMBLOCK would be removed. If you're serious about this, give your password list to someone else — that way unblocking requires their cooperation too.
 
 **Is my data sent anywhere?**
 No. Everything runs locally on your machine. No analytics, no network calls, no accounts.

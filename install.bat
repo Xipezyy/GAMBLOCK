@@ -9,7 +9,7 @@ if %errorLevel% neq 0 (
 
 echo.
 echo ============================================================
-echo   YOU SAID YOU'D QUIT -- Installer
+echo   GAMBLOCK -- Installer
 echo ============================================================
 echo.
 

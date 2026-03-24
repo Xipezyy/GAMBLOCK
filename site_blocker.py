@@ -26,7 +26,7 @@ CA_KEY_FILE    = SCRIPT_DIR / "ca_key.pem"
 SITE_CERT_FILE = SCRIPT_DIR / "site_cert.pem"
 SITE_KEY_FILE  = SCRIPT_DIR / "site_key.pem"
 USER_SITES_FILE = SCRIPT_DIR / "user_sites.txt"
-PASSWORDS_FILE = Path(os.path.expanduser("~")) / "OneDrive" / "Desktop" / "BLOCKER_PASSWORDS.txt"
+PASSWORDS_FILE = Path(os.path.expanduser("~")) / "OneDrive" / "Desktop" / "GAMBLOCK_PASSWORDS.txt"
 
 HOSTS_FILE   = r"C:\Windows\System32\drivers\etc\hosts"
 MARKER_START = "# === SITE BLOCKER START ==="
