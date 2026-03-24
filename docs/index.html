@@ -325,6 +325,39 @@
     margin-top: 6px;
   }
 
+  /* ── Blocked sites ── */
+  .sites-section {
+    padding: 100px 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .sites-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .site-tag {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px;
+    padding: 9px 18px;
+    font-size: 0.85em;
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 0.5px;
+    font-family: 'Courier New', monospace;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .site-tag:hover {
+    border-color: rgba(74,179,255,0.35);
+    color: rgba(255,255,255,0.85);
+  }
+  .sites-note {
+    margin-top: 24px;
+    font-size: 0.82em;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 0.5px;
+  }
+
   /* ── Help section ── */
   .help-section {
     border-top: 1px solid rgba(255,255,255,0.06);
@@ -499,6 +532,48 @@
         <span class="stat-label">Data collected</span>
       </div>
     </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ── Blocked sites ── -->
+  <div class="sites-section">
+    <p class="section-label">Blocked by default</p>
+    <h2 style="font-size:clamp(1.8em,3.5vw,2.8em);font-weight:700;margin-bottom:32px;color:#fff;">31 crypto casinos, out of the box.</h2>
+    <div class="sites-grid">
+      <span class="site-tag">stake.com</span>
+      <span class="site-tag">rollbit.com</span>
+      <span class="site-tag">roobet.com</span>
+      <span class="site-tag">shuffle.com</span>
+      <span class="site-tag">bc.game</span>
+      <span class="site-tag">duelbits.com</span>
+      <span class="site-tag">duel.com</span>
+      <span class="site-tag">chips.gg</span>
+      <span class="site-tag">gamdom.com</span>
+      <span class="site-tag">thunderpick.io</span>
+      <span class="site-tag">bitstarz.com</span>
+      <span class="site-tag">betfury.io</span>
+      <span class="site-tag">mystake.com</span>
+      <span class="site-tag">bets.io</span>
+      <span class="site-tag">wild.io</span>
+      <span class="site-tag">jackbit.com</span>
+      <span class="site-tag">vave.com</span>
+      <span class="site-tag">flush.com</span>
+      <span class="site-tag">fortunejack.com</span>
+      <span class="site-tag">mbitcasino.com</span>
+      <span class="site-tag">cloudbet.com</span>
+      <span class="site-tag">sportsbet.io</span>
+      <span class="site-tag">winz.io</span>
+      <span class="site-tag">haz.casino</span>
+      <span class="site-tag">katsubet.com</span>
+      <span class="site-tag">metaspins.com</span>
+      <span class="site-tag">primedice.com</span>
+      <span class="site-tag">wolfbet.com</span>
+      <span class="site-tag">crashino.com</span>
+      <span class="site-tag">donbet.com</span>
+      <span class="site-tag">csgoempire.com</span>
+    </div>
+    <p class="sites-note">All www. variants and every subdomain are blocked automatically. You can add more at any time.</p>
   </div>
 
   <div class="divider"></div>
