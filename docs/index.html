@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GAMBLOCK — Take Back Control</title>
+<style>
+  :root {
+    --blue: #4ab3ff;
+    --red:  #ff4400;
+    --blue-glow: rgba(74, 179, 255, 0.6);
+    --red-glow:  rgba(255, 68, 0, 0.6);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    color: #fff;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow-x: hidden;
+    cursor: none;
+  }
+
+  /* ── Canvas background ── */
+  #bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ── Custom cursor ── */
+  #cursor {
+    position: fixed;
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+    transition: transform 0.1s, background 0.2s;
+    mix-blend-mode: difference;
+  }
+  #cursor-ring {
+    position: fixed;
+    width: 36px;
+    height: 36px;
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9998;
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s, border-color 0.3s;
+  }
+
+  /* ── Layout ── */
+  main { position: relative; z-index: 1; }
+
+  /* ── Nav ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    padding: 20px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 100;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+  }
+  nav img { height: 36px; }
+  nav a {
+    color: rgba(255,255,255,0.6);
+    text-decoration: none;
+    font-size: 0.9em;
+    letter-spacing: 1px;
+    transition: color 0.2s;
+  }
+  nav a:hover { color: #fff; }
+  .nav-links { display: flex; gap: 36px; }
+
+  /* ── Hero ── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 120px 24px 80px;
+  }
+
+  .hero-logo {
+    width: min(680px, 88vw);
+    margin-bottom: 12px;
+    filter: drop-shadow(0 0 40px rgba(74,179,255,0.3)) drop-shadow(0 0 80px rgba(255,68,0,0.2));
+    animation: logoFloat 6s ease-in-out infinite;
+  }
+  @keyframes logoFloat {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-10px); }
+  }
+
+  .streak {
+    width: min(680px, 88vw);
+    height: 2px;
+    background: linear-gradient(90deg, var(--blue), #fff 50%, var(--red));
+    margin-bottom: 40px;
+    position: relative;
+    filter: blur(0.5px);
+  }
+  .streak::after {
+    content: '';
+    position: absolute;
+    inset: -4px 0;
+    background: inherit;
+    filter: blur(8px);
+    opacity: 0.6;
+  }
+
+  .hero h1 {
+    font-size: clamp(1.6em, 4vw, 2.6em);
+    font-weight: 300;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.9);
+    margin-bottom: 16px;
+    line-height: 1.3;
+  }
+  .hero h1 strong {
+    font-weight: 700;
+    background: linear-gradient(90deg, var(--blue), var(--red));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero p {
+    font-size: 1.05em;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 44px;
+    letter-spacing: 0.5px;
+  }
+
+  .btn-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: linear-gradient(135deg, var(--blue) 0%, #0055aa 100%);
+    color: #fff;
+    text-decoration: none;
+    padding: 18px 44px;
+    border-radius: 4px;
+    font-size: 1.05em;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 0 30px rgba(74,179,255,0.3), 0 4px 20px rgba(0,0,0,0.4);
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-download::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+  }
+  .btn-download:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 50px rgba(74,179,255,0.5), 0 8px 30px rgba(0,0,0,0.4);
+  }
+  .btn-download svg { width: 20px; height: 20px; }
+
+  .hero-sub {
+    margin-top: 20px;
+    font-size: 0.82em;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── Section shared ── */
+  section {
+    padding: 100px 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    font-size: 0.75em;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 16px;
+  }
+
+  section h2 {
+    font-size: clamp(1.8em, 3.5vw, 2.8em);
+    font-weight: 700;
+    margin-bottom: 60px;
+    color: #fff;
+  }
+
+  /* ── How it works ── */
+  .how-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 24px;
+  }
+
+  .how-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 8px;
+    padding: 32px 28px;
+    transition: border-color 0.3s, transform 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .how-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--blue), var(--red));
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .how-card:hover { border-color: rgba(74,179,255,0.3); transform: translateY(-4px); }
+  .how-card:hover::before { opacity: 1; }
+
+  .how-icon {
+    font-size: 2em;
+    margin-bottom: 16px;
+    display: block;
+  }
+  .how-card h3 {
+    font-size: 1em;
+    font-weight: 600;
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
+  }
+  .how-card p {
+    font-size: 0.88em;
+    color: rgba(255,255,255,0.45);
+    line-height: 1.7;
+  }
+
+  /* ── The promise ── */
+  .promise {
+    text-align: center;
+    padding: 80px 24px;
+  }
+  .promise-box {
+    display: inline-block;
+    border: 1px solid rgba(255,68,0,0.3);
+    border-radius: 8px;
+    padding: 48px 60px;
+    background: rgba(255,68,0,0.04);
+    position: relative;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  .promise-box::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    box-shadow: 0 0 60px rgba(255,68,0,0.1) inset;
+    pointer-events: none;
+  }
+  .promise-title {
+    font-size: clamp(1.6em, 4vw, 2.8em);
+    font-weight: 900;
+    letter-spacing: 4px;
+    color: #ff4400;
+    text-shadow: 0 0 30px rgba(255,68,0,0.5);
+    margin-bottom: 8px;
+  }
+  .promise-sub {
+    font-size: 1em;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 2px;
+  }
+  .promise-desc {
+    margin-top: 24px;
+    font-size: 0.95em;
+    color: rgba(255,255,255,0.5);
+    line-height: 1.8;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* ── Stats ── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 80px 0;
+  }
+  .stat {
+    background: #000;
+    padding: 40px 24px;
+    text-align: center;
+  }
+  .stat-number {
+    font-size: 2.8em;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--blue), var(--red));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    display: block;
+  }
+  .stat-label {
+    font-size: 0.8em;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+
+  /* ── Help section ── */
+  .help-section {
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 80px 24px;
+    text-align: center;
+  }
+  .help-section h2 {
+    margin-bottom: 16px;
+  }
+  .help-section > p {
+    color: rgba(255,255,255,0.4);
+    max-width: 520px;
+    margin: 0 auto 48px;
+    line-height: 1.8;
+    font-size: 0.95em;
+  }
+  .help-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  .help-link {
+    display: inline-block;
+    color: rgba(255,255,255,0.6);
+    text-decoration: none;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    padding: 12px 24px;
+    font-size: 0.88em;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+  }
+  .help-link:hover {
+    color: #fff;
+    border-color: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.04);
+  }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid rgba(255,255,255,0.05);
+    padding: 40px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  footer img { height: 24px; opacity: 0.5; }
+  footer p { font-size: 0.8em; color: rgba(255,255,255,0.2); }
+  footer a { color: rgba(255,255,255,0.35); text-decoration: none; }
+  footer a:hover { color: rgba(255,255,255,0.7); }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(74,179,255,0.2), rgba(255,68,0,0.2), transparent);
+    margin: 0 48px;
+  }
+
+  @media (max-width: 640px) {
+    nav { padding: 16px 20px; }
+    .nav-links { gap: 20px; }
+    .stats { grid-template-columns: 1fr; }
+    .promise-box { padding: 36px 24px; }
+    footer { padding: 32px 20px; flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<nav>
+  <img src="logo.png" alt="GAMBLOCK">
+  <div class="nav-links">
+    <a href="#how">How it works</a>
+    <a href="https://github.com/Xipezyy/GAMBLOCK" target="_blank">GitHub</a>
+  </div>
+</nav>
+
+<main>
+
+  <!-- ── Hero ── -->
+  <div class="hero">
+    <img src="logo.png" alt="GAMBLOCK" class="hero-logo">
+    <div class="streak"></div>
+    <h1>Block every crypto casino.<br><strong>Permanently. On your terms.</strong></h1>
+    <p>Free · Open source · Windows · No accounts · Works with VPN</p>
+    <a class="btn-download" href="https://github.com/Xipezyy/GAMBLOCK/archive/refs/heads/main.zip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download for Windows
+    </a>
+    <p class="hero-sub">Free · Open source · MIT licensed</p>
+  </div>
+
+  <!-- ── Promise ── -->
+  <div class="promise">
+    <div class="promise-box">
+      <div class="promise-title">YOU SAID YOU'D QUIT!</div>
+      <div class="promise-sub">ENTER PASSWORDS 0 / 100</div>
+      <p class="promise-desc">
+        That's what you'll see — right in your browser — when you try to visit a blocked site.
+        To unblock, you type 100 randomly generated passwords. One by one. No copy/paste.
+        Give the list to someone you trust. Make it hard. Make it real.
+      </p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ── How it works ── -->
+  <section id="how">
+    <p class="section-label">How it works</p>
+    <h2>Built to be hard to bypass.</h2>
+    <div class="how-grid">
+      <div class="how-card">
+        <span class="how-icon">🔒</span>
+        <h3>Hosts file blocking</h3>
+        <p>Redirects blocked domains to your local machine — before DNS, before your VPN, before anything else.</p>
+      </div>
+      <div class="how-card">
+        <span class="how-icon">🌐</span>
+        <h3>DNS server</h3>
+        <p>A local DNS server catches every subdomain automatically. <code style="color:var(--blue);font-size:0.9em">live.stake.com</code>, <code style="color:var(--blue);font-size:0.9em">sports.stake.com</code> — all blocked.</p>
+      </div>
+      <div class="how-card">
+        <span class="how-icon">🖥️</span>
+        <h3>Browser blocking page</h3>
+        <p>When you try to visit, your browser shows the GAMBLOCK page — not an error, a reminder. With a password form.</p>
+      </div>
+      <div class="how-card">
+        <span class="how-icon">🔑</span>
+        <h3>100 typed passwords</h3>
+        <p>No copy/paste. No shortcuts. 100 passwords stand between you and the site. Give the list to someone you trust.</p>
+      </div>
+      <div class="how-card">
+        <span class="how-icon">⚡</span>
+        <h3>Survives reboots</h3>
+        <p>A background service registers with Windows Task Scheduler. GAMBLOCK is active the moment your PC starts.</p>
+      </div>
+      <div class="how-card">
+        <span class="how-icon">➕</span>
+        <h3>Add sites, never remove</h3>
+        <p>Found a new site? Add it instantly. Sites can only be added while GAMBLOCK is active — never removed without the passwords.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Stats ── -->
+  <div style="max-width:1100px;margin:0 auto;padding:0 24px;">
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-number">31</span>
+        <span class="stat-label">Sites blocked by default</span>
+      </div>
+      <div class="stat">
+        <span class="stat-number">100</span>
+        <span class="stat-label">Passwords to unblock</span>
+      </div>
+      <div class="stat">
+        <span class="stat-number">0</span>
+        <span class="stat-label">Data collected</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ── Help ── -->
+  <div class="help-section" id="help">
+    <p class="section-label">You're not alone</p>
+    <h2>Get support</h2>
+    <p>GAMBLOCK is a tool, not a treatment. If gambling is affecting your life, talking to someone helps.</p>
+    <div class="help-links">
+      <a class="help-link" href="tel:18005224700">🇺🇸 National Helpline — 1-800-522-4700</a>
+      <a class="help-link" href="https://www.gamcare.org.uk" target="_blank">🇬🇧 GamCare</a>
+      <a class="help-link" href="https://www.gamblingtherapy.org" target="_blank">🌍 Gambling Therapy</a>
+      <a class="help-link" href="https://www.gamblersanonymous.org" target="_blank">🤝 Gamblers Anonymous</a>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <img src="logo.png" alt="GAMBLOCK">
+  <p>Free &amp; open source — <a href="https://github.com/Xipezyy/GAMBLOCK" target="_blank">github.com/Xipezyy/GAMBLOCK</a></p>
+  <p>MIT License</p>
+</footer>
+
+<script>
+// ── Canvas background: floating shapes ──────────────────────────────────────
+
+const canvas = document.getElementById('bg');
+const ctx    = canvas.getContext('2d');
+let W, H, mouse = { x: -999, y: -999 };
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+const BLUE = { r: 74,  g: 179, b: 255 };
+const RED  = { r: 255, g: 68,  b: 0   };
+
+function randColor(alpha) {
+  const c = Math.random() > 0.5 ? BLUE : RED;
+  return `rgba(${c.r},${c.g},${c.b},${alpha})`;
+}
+function glowColor(fill) {
+  return fill.includes('74,179') ? '#4ab3ff' : '#ff4400';
+}
+
+const TYPES = ['circle', 'square', 'triangle', 'hexagon', 'diamond'];
+
+class Shape {
+  constructor() { this.reset(true); }
+
+  reset(init = false) {
+    this.x    = init ? Math.random() * W : (Math.random() > 0.5 ? -20 : W + 20);
+    this.y    = Math.random() * H;
+    this.size = Math.random() * 22 + 8;
+    this.type = TYPES[Math.floor(Math.random() * TYPES.length)];
+    const speed = Math.random() * 0.4 + 0.1;
+    const angle = Math.random() * Math.PI * 2;
+    this.vx   = Math.cos(angle) * speed;
+    this.vy   = Math.sin(angle) * speed;
+    this.rot  = Math.random() * Math.PI * 2;
+    this.rotV = (Math.random() - 0.5) * 0.015;
+    const a   = Math.random() * 0.18 + 0.06;
+    this.fill  = randColor(a * 0.3);
+    this.stroke= randColor(a);
+    this.glow  = glowColor(this.stroke);
+    this.life  = 1;
+    this.fadeIn= Math.random() * 0.02 + 0.005;
+    this.alpha = init ? Math.random() : 0;
+  }
+
+  update() {
+    // Mouse repulsion
+    const dx   = this.x - mouse.x;
+    const dy   = this.y - mouse.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 180 && dist > 0) {
+      const f = ((180 - dist) / 180) * 0.06;
+      this.vx += (dx / dist) * f;
+      this.vy += (dy / dist) * f;
+    }
+
+    // Speed cap + damping
+    const spd = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+    if (spd > 2.5) { this.vx = this.vx / spd * 2.5; this.vy = this.vy / spd * 2.5; }
+    this.vx *= 0.992;
+    this.vy *= 0.992;
+
+    this.x   += this.vx;
+    this.y   += this.vy;
+    this.rot += this.rotV;
+    this.alpha = Math.min(1, this.alpha + this.fadeIn);
+
+    // Off screen — reset
+    const pad = this.size * 2;
+    if (this.x < -pad || this.x > W + pad || this.y < -pad || this.y > H + pad) {
+      this.reset();
+    }
+  }
+
+  draw() {
+    const s = this.size;
+    ctx.save();
+    ctx.globalAlpha = this.alpha;
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rot);
+    ctx.shadowBlur  = 18;
+    ctx.shadowColor = this.glow;
+    ctx.strokeStyle = this.stroke;
+    ctx.fillStyle   = this.fill;
+    ctx.lineWidth   = 1.2;
+    ctx.beginPath();
+
+    switch (this.type) {
+      case 'circle':
+        ctx.arc(0, 0, s, 0, Math.PI * 2);
+        break;
+      case 'square':
+        ctx.rect(-s / 2, -s / 2, s, s);
+        break;
+      case 'triangle':
+        ctx.moveTo(0, -s);
+        ctx.lineTo(s * 0.866, s * 0.5);
+        ctx.lineTo(-s * 0.866, s * 0.5);
+        ctx.closePath();
+        break;
+      case 'hexagon':
+        for (let i = 0; i < 6; i++) {
+          const a = (i * Math.PI) / 3;
+          i === 0 ? ctx.moveTo(Math.cos(a)*s, Math.sin(a)*s)
+                  : ctx.lineTo(Math.cos(a)*s, Math.sin(a)*s);
+        }
+        ctx.closePath();
+        break;
+      case 'diamond':
+        ctx.moveTo(0, -s);
+        ctx.lineTo(s * 0.6, 0);
+        ctx.lineTo(0, s);
+        ctx.lineTo(-s * 0.6, 0);
+        ctx.closePath();
+        break;
+    }
+
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// Spawn shapes
+const shapes = Array.from({ length: 55 }, () => new Shape());
+
+function loop() {
+  ctx.clearRect(0, 0, W, H);
+  shapes.forEach(s => { s.update(); s.draw(); });
+  requestAnimationFrame(loop);
+}
+loop();
+
+// ── Mouse tracking ───────────────────────────────────────────────────────────
+
+const cursor     = document.getElementById('cursor');
+const cursorRing = document.getElementById('cursor-ring');
+let rx = -100, ry = -100;
+
+document.addEventListener('mousemove', e => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+  cursor.style.left = e.clientX + 'px';
+  cursor.style.top  = e.clientY + 'px';
+});
+
+// Ring follows with lag
+function animRing() {
+  rx += (mouse.x - rx) * 0.12;
+  ry += (mouse.y - ry) * 0.12;
+  cursorRing.style.left = rx + 'px';
+  cursorRing.style.top  = ry + 'px';
+  requestAnimationFrame(animRing);
+}
+animRing();
+
+// Cursor grow on hover
+document.querySelectorAll('a, button').forEach(el => {
+  el.addEventListener('mouseenter', () => {
+    cursorRing.style.width  = '56px';
+    cursorRing.style.height = '56px';
+    cursorRing.style.borderColor = 'rgba(74,179,255,0.6)';
+  });
+  el.addEventListener('mouseleave', () => {
+    cursorRing.style.width  = '36px';
+    cursorRing.style.height = '36px';
+    cursorRing.style.borderColor = 'rgba(255,255,255,0.4)';
+  });
+});
+</script>
+</body>
+</html>
