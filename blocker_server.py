@@ -19,12 +19,15 @@ import time
 from pathlib import Path
 from urllib.parse import parse_qs
 
-SCRIPT_DIR     = Path(__file__).parent.resolve()
-CONFIG_FILE    = SCRIPT_DIR / "config.json"
-CA_CERT_FILE   = SCRIPT_DIR / "ca_cert.pem"
-CA_KEY_FILE    = SCRIPT_DIR / "ca_key.pem"
-SITE_CERT_FILE = SCRIPT_DIR / "site_cert.pem"
-SITE_KEY_FILE  = SCRIPT_DIR / "site_key.pem"
+import os
+DATA_DIR = Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "GAMBLOCK"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+CONFIG_FILE    = DATA_DIR / "config.json"
+CA_CERT_FILE   = DATA_DIR / "ca_cert.pem"
+CA_KEY_FILE    = DATA_DIR / "ca_key.pem"
+SITE_CERT_FILE = DATA_DIR / "site_cert.pem"
+SITE_KEY_FILE  = DATA_DIR / "site_key.pem"
 
 HOSTS_FILE   = r"C:\Windows\System32\drivers\etc\hosts"
 MARKER_START = "# === SITE BLOCKER START ==="

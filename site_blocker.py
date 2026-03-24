@@ -19,14 +19,24 @@ from pathlib import Path
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
 
-SCRIPT_DIR     = Path(__file__).parent.resolve()
-CONFIG_FILE    = SCRIPT_DIR / "config.json"
-CA_CERT_FILE   = SCRIPT_DIR / "ca_cert.pem"
-CA_KEY_FILE    = SCRIPT_DIR / "ca_key.pem"
-SITE_CERT_FILE = SCRIPT_DIR / "site_cert.pem"
-SITE_KEY_FILE  = SCRIPT_DIR / "site_key.pem"
-USER_SITES_FILE = SCRIPT_DIR / "user_sites.txt"
-PASSWORDS_FILE = Path(os.path.expanduser("~")) / "OneDrive" / "Desktop" / "GAMBLOCK_PASSWORDS.txt"
+# When frozen by PyInstaller, exe lives in Program Files (read-only).
+# Store all runtime data in AppData\GAMBLOCK instead.
+if getattr(sys, "frozen", False):
+    INSTALL_DIR = Path(sys.executable).parent
+else:
+    INSTALL_DIR = Path(__file__).parent.resolve()
+
+# ProgramData is accessible to all users, admin, and SYSTEM — consistent regardless of who runs it
+DATA_DIR = Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "GAMBLOCK"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+CONFIG_FILE     = DATA_DIR / "config.json"
+CA_CERT_FILE    = DATA_DIR / "ca_cert.pem"
+CA_KEY_FILE     = DATA_DIR / "ca_key.pem"
+SITE_CERT_FILE  = DATA_DIR / "site_cert.pem"
+SITE_KEY_FILE   = DATA_DIR / "site_key.pem"
+USER_SITES_FILE = DATA_DIR / "user_sites.txt"
+PASSWORDS_FILE  = Path(os.path.expanduser("~")) / "OneDrive" / "Desktop" / "GAMBLOCK_PASSWORDS.txt"
 
 HOSTS_FILE   = r"C:\Windows\System32\drivers\etc\hosts"
 MARKER_START = "# === SITE BLOCKER START ==="
@@ -212,7 +222,11 @@ def restore_dns():
 # ─── Task Scheduler ───────────────────────────────────────────────────────────
 
 def install_task() -> bool:
-    cmd = f'"{sys.executable}" "{SCRIPT_DIR / "blocker_server.py"}"'
+    if getattr(sys, "frozen", False):
+        # Running as compiled exe — launch the server exe directly
+        cmd = f'"{INSTALL_DIR / "GAMBLOCK_Server.exe"}"'
+    else:
+        cmd = f'"{sys.executable}" "{INSTALL_DIR / "blocker_server.py"}"'
     r   = subprocess.run([
         "schtasks", "/create", "/tn", TASK_NAME,
         "/sc", "onstart", "/ru", "SYSTEM", "/rl", "HIGHEST",

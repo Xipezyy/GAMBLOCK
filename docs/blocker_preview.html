@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SITE BLOCKED — GAMBLOCK</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:#080000;color:#ff2222;
+  font-family:'Courier New',monospace;
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:40px 20px;
+  user-select:none;
+}
+h1{
+  font-size:clamp(2em,7vw,4.5em);font-weight:bold;
+  letter-spacing:5px;text-shadow:0 0 40px #ff0000,0 0 80px #880000;
+  margin-bottom:30px;text-align:center;
+  animation:pulse 2.5s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.65}}
+.counter{
+  font-size:1.4em;color:#cc7777;margin-bottom:20px;
+  border:1px solid #440000;padding:12px 28px;border-radius:4px;
+  background:#100000;
+}
+.counter strong{color:#ff5555;font-size:1.25em}
+.bar-wrap{width:340px;height:10px;background:#200000;border-radius:5px;margin-bottom:32px;overflow:hidden}
+.bar-fill{height:100%;background:linear-gradient(90deg,#cc0000,#ff6600);border-radius:5px;transition:width .4s ease}
+form{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:380px}
+input[type=password]{
+  width:100%;padding:15px 18px;
+  font-size:1.15em;font-family:'Courier New',monospace;
+  background:#130000;border:2px solid #770000;border-radius:4px;
+  color:#ffffff;outline:none;text-align:center;letter-spacing:3px;
+  caret-color:#ff4444;
+}
+input[type=password]:focus{border-color:#ff3333;box-shadow:0 0 14px #ff000033}
+button{
+  width:100%;padding:15px;
+  font-size:1.1em;font-family:'Courier New',monospace;font-weight:bold;
+  background:#3d0000;color:#ff5555;border:2px solid #770000;border-radius:4px;
+  cursor:pointer;letter-spacing:3px;transition:all .2s;
+}
+button:hover{background:#5c0000;border-color:#ff3333;color:#ff8888}
+.err{color:#ff5555;font-size:.95em;margin-top:2px;animation:shake .3s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.hint{color:#440000;font-size:.8em;margin-top:28px;text-align:center;line-height:1.6}
+
+/* Toggle buttons for preview states */
+.preview-bar{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  display:flex;gap:10px;z-index:999;
+}
+.preview-btn{
+  background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);
+  color:rgba(255,255,255,0.6);padding:8px 18px;border-radius:4px;
+  font-family:'Courier New',monospace;font-size:0.75em;cursor:pointer;
+  letter-spacing:1px;transition:all .2s;
+}
+.preview-btn:hover,.preview-btn.active{
+  background:rgba(255,255,255,0.14);color:#fff;border-color:rgba(255,255,255,0.35);
+}
+</style>
+</head>
+<body>
+
+<h1>YOU SAID YOU'D QUIT!</h1>
+<div class="counter">ENTER PASSWORDS <strong id="count">3</strong>&nbsp;/&nbsp;100</div>
+<div class="bar-wrap"><div class="bar-fill" id="bar" style="width:3%"></div></div>
+
+<form autocomplete="off" onsubmit="return false">
+  <input type="hidden" name="sid" value="preview">
+  <input type="password" id="pwd" name="pwd" autofocus
+         autocomplete="new-password"
+         onpaste="return false" oncopy="return false" oncut="return false"
+         placeholder="Type password #4...">
+  <button type="submit" onclick="showWrong()">&#x25B6;&nbsp;SUBMIT</button>
+  <p class="err" id="msg" style="display:none">&#x274C; Wrong. Type it, don't guess it.</p>
+</form>
+
+<p class="hint">You blocked this site yourself.<br>You made a promise. Keep it.</p>
+
+<!-- Preview state switcher -->
+<div class="preview-bar">
+  <button class="preview-btn active" onclick="setState(3,'wrong')">Wrong password</button>
+  <button class="preview-btn" onclick="setState(0,'fresh')">Fresh (0/100)</button>
+  <button class="preview-btn" onclick="setState(47,'mid')">Halfway (47/100)</button>
+  <button class="preview-btn" onclick="setState(99,'almost')">Almost (99/100)</button>
+</div>
+
+<script>
+function setState(count, mode) {
+  document.getElementById('count').textContent = count;
+  document.getElementById('bar').style.width = count + '%';
+  document.getElementById('pwd').placeholder = 'Type password #' + (count+1) + '...';
+  document.getElementById('msg').style.display = (mode === 'wrong') ? 'block' : 'none';
+  document.querySelectorAll('.preview-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+function showWrong() {
+  const msg = document.getElementById('msg');
+  msg.style.display = 'block';
+  msg.style.animation = 'none';
+  msg.offsetHeight;
+  msg.style.animation = 'shake .3s ease';
+}
+// Disable paste for real
+document.addEventListener('paste', e => {
+  if(document.activeElement === document.getElementById('pwd')) e.preventDefault();
+});
+</script>
+</body>
+</html>
