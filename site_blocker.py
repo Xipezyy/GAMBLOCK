@@ -208,6 +208,54 @@ def install_ca() -> bool:
 def uninstall_ca():
     subprocess.run(["certutil", "-delstore", "Root", "Site Blocker CA"], capture_output=True)
 
+# ─── Browser proxy lockdown ───────────────────────────────────────────────────
+# Browser VPN extensions (NordVPN, ExpressVPN, etc.) route traffic through a remote
+# proxy, bypassing the local DNS and hosts file entirely. We counter this by pushing
+# Group Policy that forces Chrome/Edge/Brave into direct-connection mode and writing
+# a Firefox enterprise policy that does the same.
+
+_BROWSER_POLICY_KEYS = [
+    r"SOFTWARE\Policies\Google\Chrome",
+    r"SOFTWARE\Policies\Microsoft\Edge",
+    r"SOFTWARE\Policies\BraveSoftware\Brave",
+]
+_FIREFOX_DIRS = [
+    Path(r"C:\Program Files\Mozilla Firefox\distribution"),
+    Path(r"C:\Program Files (x86)\Mozilla Firefox\distribution"),
+]
+
+def block_browser_proxy():
+    for key_path in _BROWSER_POLICY_KEYS:
+        try:
+            key = winreg.CreateKeyEx(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_ALL_ACCESS)
+            winreg.SetValueEx(key, "ProxyMode", 0, winreg.REG_SZ, "direct")
+            winreg.CloseKey(key)
+        except Exception:
+            pass
+    ff_policy = {"policies": {"Proxy": {"Mode": "none", "Locked": True}}}
+    for ff_dir in _FIREFOX_DIRS:
+        if ff_dir.parent.exists():
+            ff_dir.mkdir(exist_ok=True)
+            (ff_dir / "policies.json").write_text(json.dumps(ff_policy, indent=2), encoding="utf-8")
+
+def unblock_browser_proxy():
+    for key_path in _BROWSER_POLICY_KEYS:
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_WRITE) as key:
+                try:
+                    winreg.DeleteValue(key, "ProxyMode")
+                except FileNotFoundError:
+                    pass
+        except FileNotFoundError:
+            pass
+    for ff_dir in _FIREFOX_DIRS:
+        policy_file = ff_dir / "policies.json"
+        if policy_file.exists():
+            try:
+                policy_file.unlink()
+            except Exception:
+                pass
+
 # ─── DNS configuration ────────────────────────────────────────────────────────
 
 def configure_dns():
@@ -309,7 +357,7 @@ def cmd_block():
         print("  Aborted.")
         return
 
-    print("\n  [1/7] Adding hosts entries...")
+    print("\n  [1/8] Adding hosts entries...")
     try:
         _write_hosts_block(sites)
     except PermissionError:
@@ -317,27 +365,30 @@ def cmd_block():
         input("\nPress Enter to exit...")
         return
 
-    print("  [2/7] Generating 100 passwords...")
+    print("  [2/8] Generating 100 passwords...")
     passwords = generate_passwords()
     config    = {"hashed_passwords": [hash_password(p) for p in passwords], "sites": sites}
     CONFIG_FILE.write_text(json.dumps(config, indent=2), encoding="utf-8")
 
-    print("  [3/7] Generating TLS certificates...")
+    print("  [3/8] Generating TLS certificates...")
     certs_ok = generate_certs(sites)
 
-    print("  [4/7] Installing CA in Windows trust store...")
+    print("  [4/8] Installing CA in Windows trust store...")
     ca_ok = install_ca() if certs_ok else False
     if certs_ok and not ca_ok:
         print("        [WARN] CA install failed — HTTPS shows cert warning.")
 
-    print("  [5/7] Registering background server (Task Scheduler)...")
+    print("  [5/8] Registering background server (Task Scheduler)...")
     if not install_task():
         print("        [WARN] Task Scheduler failed — server won't auto-start after reboot.")
 
-    print("  [6/7] Configuring DNS (blocks all subdomains)...")
+    print("  [6/8] Configuring DNS (blocks all subdomains)...")
     configure_dns()
 
-    print("  [7/7] Starting server now...")
+    print("  [7/8] Blocking browser VPN/proxy extensions...")
+    block_browser_proxy()
+
+    print("  [8/8] Starting server now...")
     start_task()
 
     # Write password file
@@ -449,6 +500,8 @@ def cmd_unblock():
     _remove_hosts_block()
     print("  Restoring DNS...")
     restore_dns()
+    print("  Restoring browser proxy settings...")
+    unblock_browser_proxy()
     print("  Stopping server...")
     stop_task()
     remove_task()
