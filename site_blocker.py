@@ -50,7 +50,8 @@ PASSWORDS_FILE  = _get_desktop() / "GAMBLOCK_PASSWORDS.txt"
 HOSTS_FILE   = r"C:\Windows\System32\drivers\etc\hosts"
 MARKER_START = "# === SITE BLOCKER START ==="
 MARKER_END   = "# === SITE BLOCKER END ==="
-TASK_NAME    = "SiteBlockerServer"
+TASK_NAME         = "SiteBlockerServer"
+DNS_GUARD_TASK    = "GAMBLOCKDNSGuard"
 
 PASSWORD_COUNT  = 100
 PASSWORD_LENGTH = 16
@@ -267,6 +268,25 @@ def configure_dns():
         "-ServerAddresses '127.0.0.1','8.8.8.8' }"
     ], capture_output=True)
 
+def install_dns_guard():
+    """Task triggered on every network adapter connect — re-applies our DNS to catch VPN adapters."""
+    ps = (
+        "Get-NetAdapter | Where-Object {$_.Status -eq 'Up'} | "
+        "ForEach-Object { Set-DnsClientServerAddress -InterfaceAlias $_.Name "
+        "-ServerAddresses '127.0.0.1','8.8.8.8' }"
+    )
+    subprocess.run([
+        "schtasks", "/create", "/tn", DNS_GUARD_TASK,
+        "/sc", "onevent",
+        "/ec", "Microsoft-Windows-NetworkProfile/Operational",
+        "/mo", "*[System[(EventID=10000)]]",
+        "/tr", f'powershell -WindowStyle Hidden -Command "{ps}"',
+        "/ru", "SYSTEM", "/rl", "HIGHEST", "/f",
+    ], capture_output=True)
+
+def remove_dns_guard():
+    subprocess.run(["schtasks", "/delete", "/tn", DNS_GUARD_TASK, "/f"], capture_output=True)
+
 def restore_dns():
     """Reset all adapters back to automatic (DHCP) DNS."""
     subprocess.run([
@@ -365,30 +385,33 @@ def cmd_block():
         input("\nPress Enter to exit...")
         return
 
-    print("  [2/8] Generating 100 passwords...")
+    print("  [2/9] Generating 100 passwords...")
     passwords = generate_passwords()
     config    = {"hashed_passwords": [hash_password(p) for p in passwords], "sites": sites}
     CONFIG_FILE.write_text(json.dumps(config, indent=2), encoding="utf-8")
 
-    print("  [3/8] Generating TLS certificates...")
+    print("  [3/9] Generating TLS certificates...")
     certs_ok = generate_certs(sites)
 
-    print("  [4/8] Installing CA in Windows trust store...")
+    print("  [4/9] Installing CA in Windows trust store...")
     ca_ok = install_ca() if certs_ok else False
     if certs_ok and not ca_ok:
         print("        [WARN] CA install failed — HTTPS shows cert warning.")
 
-    print("  [5/8] Registering background server (Task Scheduler)...")
+    print("  [5/9] Registering background server (Task Scheduler)...")
     if not install_task():
         print("        [WARN] Task Scheduler failed — server won't auto-start after reboot.")
 
-    print("  [6/8] Configuring DNS (blocks all subdomains)...")
+    print("  [6/9] Configuring DNS (blocks all subdomains)...")
     configure_dns()
 
-    print("  [7/8] Blocking browser VPN/proxy extensions...")
+    print("  [7/9] Installing DNS guard (re-applies on VPN connect)...")
+    install_dns_guard()
+
+    print("  [8/9] Blocking browser VPN/proxy extensions...")
     block_browser_proxy()
 
-    print("  [8/8] Starting server now...")
+    print("  [9/9] Starting server now...")
     start_task()
 
     # Write password file
@@ -500,6 +523,7 @@ def cmd_unblock():
     _remove_hosts_block()
     print("  Restoring DNS...")
     restore_dns()
+    remove_dns_guard()
     print("  Restoring browser proxy settings...")
     unblock_browser_proxy()
     print("  Stopping server...")

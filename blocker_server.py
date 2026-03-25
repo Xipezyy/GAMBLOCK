@@ -353,8 +353,8 @@ def _run_dns_server():
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(("127.0.0.1", 53))
-        print("[blocker] DNS  listening on 127.0.0.1:53 — all subdomains covered", flush=True)
+        sock.bind(("0.0.0.0", 53))
+        print("[blocker] DNS  listening on 0.0.0.0:53 — all interfaces covered (incl. VPN)", flush=True)
         while True:
             try:
                 data, addr = sock.recvfrom(4096)
