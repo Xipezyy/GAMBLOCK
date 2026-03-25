@@ -230,10 +230,12 @@ def block_browser_proxy():
         try:
             key = winreg.CreateKeyEx(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_ALL_ACCESS)
             winreg.SetValueEx(key, "ProxyMode", 0, winreg.REG_SZ, "direct")
+            winreg.SetValueEx(key, "DnsOverHttpsMode", 0, winreg.REG_SZ, "off")  # force system resolver (honours hosts file)
             winreg.CloseKey(key)
         except Exception:
             pass
-    ff_policy = {"policies": {"Proxy": {"Mode": "none", "Locked": True}}}
+    ff_policy = {"policies": {"Proxy": {"Mode": "none", "Locked": True},
+                               "DNSOverHTTPS": {"Enabled": False, "Locked": True}}}
     for ff_dir in _FIREFOX_DIRS:
         if ff_dir.parent.exists():
             ff_dir.mkdir(exist_ok=True)
@@ -243,10 +245,11 @@ def unblock_browser_proxy():
     for key_path in _BROWSER_POLICY_KEYS:
         try:
             with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_WRITE) as key:
-                try:
-                    winreg.DeleteValue(key, "ProxyMode")
-                except FileNotFoundError:
-                    pass
+                for val in ("ProxyMode", "DnsOverHttpsMode"):
+                    try:
+                        winreg.DeleteValue(key, val)
+                    except FileNotFoundError:
+                        pass
         except FileNotFoundError:
             pass
     for ff_dir in _FIREFOX_DIRS:
