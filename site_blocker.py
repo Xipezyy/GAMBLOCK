@@ -340,6 +340,7 @@ def _write_hosts_block(sites: list[str]):
                 f.write(f"127.0.0.1 www.{s}\n")
         f.write(f"{MARKER_END}\n")
     _set_hosts_readonly(True)
+    subprocess.run(["ipconfig", "/flushdns"], capture_output=True)
 
 def _remove_hosts_block():
     _set_hosts_readonly(False)

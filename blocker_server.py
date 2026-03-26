@@ -45,7 +45,7 @@ _domains_loaded_at: float = 0.0
 
 def _refresh_domains():
     global _blocked_domains, _domains_loaded_at
-    if time.time() - _domains_loaded_at < 30:
+    if time.time() - _domains_loaded_at < 5:
         return
     config = _load_config()
     with _domains_lock:
