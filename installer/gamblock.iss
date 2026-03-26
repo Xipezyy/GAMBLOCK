@@ -57,6 +57,19 @@ begin
   Result := True;
 end;
 
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+begin
+  if CurStep = ssInstall then
+  begin
+    // Stop and kill the server before overwriting files
+    Exec('schtasks', '/end /tn "SiteBlockerServer"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ExpandConstant('{sys}\taskkill.exe'), '/f /im GAMBLOCK_Server.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Sleep(1500);
+  end;
+end;
+
 function InitializeUninstall(): Boolean;
 var
   ConfigPath: String;

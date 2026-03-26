@@ -538,8 +538,8 @@
         <span class="stat-label">Passwords to unblock</span>
       </div>
       <div class="stat">
-        <span class="stat-number">0</span>
-        <span class="stat-label">Data collected</span>
+        <span class="stat-number" id="dl-count">—</span>
+        <span class="stat-label">People helped so far</span>
       </div>
     </div>
   </div>
@@ -588,6 +588,20 @@
 
   <div class="divider"></div>
 
+  <!-- ── Users helped ── -->
+  <div style="max-width:1100px;margin:0 auto;padding:80px 24px;text-align:center;">
+    <p class="section-label">Making a difference</p>
+    <h2 style="font-size:clamp(1.8em,3.5vw,2.8em);font-weight:700;margin-bottom:16px;color:#fff;">Users we've helped quit.</h2>
+    <p style="color:rgba(255,255,255,0.4);font-size:0.95em;margin-bottom:56px;letter-spacing:1px;">Every download is someone choosing themselves over the casino.</p>
+    <div style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 80px;border:1px solid rgba(255,255,255,0.08);border-radius:16px;background:rgba(255,255,255,0.02);">
+      <span id="helped-count" style="font-size:clamp(4em,10vw,7em);font-weight:900;line-height:1;background:linear-gradient(135deg,#4ab3ff,#ff4400);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-variant-numeric:tabular-nums;">—</span>
+      <span style="margin-top:12px;font-size:1em;color:rgba(255,255,255,0.35);letter-spacing:4px;text-transform:uppercase;">installs &amp; counting</span>
+    </div>
+    <p style="margin-top:28px;color:rgba(255,255,255,0.2);font-size:0.8em;letter-spacing:1px;">Live from GitHub · updates on each visit</p>
+  </div>
+
+  <div class="divider"></div>
+
   <!-- ── Help ── -->
   <div class="help-section" id="help">
     <p class="section-label">You're not alone</p>
@@ -610,6 +624,39 @@
 </footer>
 
 <script>
+// ── Live download counter ────────────────────────────────────────────────────
+(function() {
+  function animateCount(el, target) {
+    if (target === 0) { el.textContent = '0'; return; }
+    const duration = 1800;
+    const start = performance.now();
+    function step(now) {
+      const progress = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.floor(ease * target).toLocaleString();
+      if (progress < 1) requestAnimationFrame(step);
+      else el.textContent = target.toLocaleString();
+    }
+    requestAnimationFrame(step);
+  }
+
+  fetch('https://api.github.com/repos/Xipezyy/GAMBLOCK/releases/latest')
+    .then(r => r.json())
+    .then(data => {
+      const count = (data.assets || []).reduce((sum, a) => sum + (a.download_count || 0), 0);
+      const dlEl      = document.getElementById('dl-count');
+      const helpedEl  = document.getElementById('helped-count');
+      if (dlEl)     animateCount(dlEl, count);
+      if (helpedEl) animateCount(helpedEl, count);
+    })
+    .catch(() => {
+      const dlEl     = document.getElementById('dl-count');
+      const helpedEl = document.getElementById('helped-count');
+      if (dlEl)     dlEl.textContent     = '0';
+      if (helpedEl) helpedEl.textContent = '0';
+    });
+})();
+
 // ── Canvas background: floating shapes ──────────────────────────────────────
 
 const canvas = document.getElementById('bg');
