@@ -15,6 +15,7 @@ import random
 import string
 import subprocess
 import sys
+import threading
 import winreg
 from pathlib import Path
 
@@ -359,241 +360,437 @@ def _remove_hosts_block():
         print(f"  [ERROR] Could not update hosts file: {e}")
     subprocess.run(["ipconfig", "/flushdns"], capture_output=True)
 
-# ─── Block ────────────────────────────────────────────────────────────────────
+# ─── GUI ──────────────────────────────────────────────────────────────────────
 
-def cmd_block():
-    if is_blocked():
-        print("  [INFO] Blocker is already active.")
-        input("\nPress Enter to exit...")
-        return
+import customtkinter as ctk
+from tkinter import messagebox
 
-    sites = _all_sites()
+ctk.set_appearance_mode("dark")
 
-    print("=" * 62)
-    print("  SITE BLOCKER — ACTIVATE")
-    print("=" * 62)
-    print(f"\n  Domains to block : {len(sites)} (+ www. variants + all subdomains)")
-    print("  Subdomain cover  : live.stake.com, sports.stake.com, etc.")
-    print("  Browser page     : 'YOU SAID YOU'D QUIT!' with password form")
-    print("  Passwords needed : 100 (typed — no copy/paste)\n")
-    if input("  Type YES to activate: ").strip() != "YES":
-        print("  Aborted.")
-        return
+_BG     = "#0d0d0d"
+_CARD   = "#161616"
+_BORDER = "#252525"
+_RED    = "#dc2626"
+_RED_H  = "#b91c1c"
+_GREEN  = "#16a34a"
+_WHITE  = "#f5f5f5"
+_MUTED  = "#6b7280"
+_FONT   = "Segoe UI"
 
-    print("\n  [1/8] Adding hosts entries...")
-    try:
-        _write_hosts_block(sites)
-    except PermissionError:
-        print("  [ERROR] Cannot write hosts file. Run as Administrator.")
-        input("\nPress Enter to exit...")
-        return
 
-    print("  [2/9] Generating 100 passwords...")
-    passwords = generate_passwords()
-    config    = {"hashed_passwords": [hash_password(p) for p in passwords], "sites": sites}
-    CONFIG_FILE.write_text(json.dumps(config, indent=2), encoding="utf-8")
+def _no_paste(entry):
+    for seq in ("<Control-v>", "<Control-V>", "<<Paste>>",
+                "<Button-3>", "<Control-Insert>", "<Shift-Insert>"):
+        entry.bind(seq, lambda e: "break")
 
-    print("  [3/9] Generating TLS certificates...")
-    certs_ok = generate_certs(sites)
 
-    print("  [4/9] Installing CA in Windows trust store...")
-    ca_ok = install_ca() if certs_ok else False
-    if certs_ok and not ca_ok:
-        print("        [WARN] CA install failed — HTTPS shows cert warning.")
+class _Modal(ctk.CTkToplevel):
+    def __init__(self, parent, title, w, h):
+        super().__init__(parent)
+        self.title(title)
+        self.geometry(f"{w}x{h}")
+        self.resizable(False, False)
+        self.configure(fg_color=_BG)
+        self.grab_set()
+        try:
+            ico = INSTALL_DIR / "gamblock.ico"
+            if ico.exists():
+                self.after(200, lambda: self.iconbitmap(str(ico)))
+        except Exception:
+            pass
 
-    print("  [5/9] Registering background server (Task Scheduler)...")
-    if not install_task():
-        print("        [WARN] Task Scheduler failed — server won't auto-start after reboot.")
 
-    print("  [6/9] Configuring DNS (blocks all subdomains)...")
-    configure_dns()
+class AddSiteDialog(_Modal):
+    def __init__(self, parent):
+        super().__init__(parent, "Add Site — GAMBLOCK", 420, 220)
+        ctk.CTkLabel(self, text="Block a new site",
+                     font=ctk.CTkFont(family=_FONT, size=16, weight="bold"),
+                     text_color=_WHITE).pack(pady=(24, 4))
+        ctk.CTkLabel(self, text="Once added it cannot be removed without 100 passwords.",
+                     font=ctk.CTkFont(family=_FONT, size=11), text_color=_MUTED).pack()
+        self._e = ctk.CTkEntry(self, width=340, height=40,
+                                placeholder_text="e.g. newcasino.com",
+                                font=ctk.CTkFont(family=_FONT, size=13),
+                                fg_color=_CARD, border_color=_BORDER)
+        self._e.pack(pady=16)
+        self._e.focus()
+        self._e.bind("<Return>", lambda _: self._submit())
+        ctk.CTkButton(self, text="Block Site", width=340, height=40,
+                       font=ctk.CTkFont(family=_FONT, size=13, weight="bold"),
+                       fg_color=_RED, hover_color=_RED_H,
+                       command=self._submit).pack()
 
-    print("  [7/9] Installing DNS guard (re-applies on VPN connect)...")
-    install_dns_guard()
-
-    print("  [8/9] Blocking browser VPN/proxy extensions...")
-    block_browser_proxy()
-
-    print("  [9/9] Starting server now...")
-    start_task()
-
-    # Write password file
-    lines = ["=" * 62, "  SITE BLOCKER — UNBLOCK PASSWORDS", "=" * 62, "",
-             "  Enter ALL 100 passwords in order to unblock.",
-             "  Give this to a trusted person, or print & delete this file.", "",
-             "-" * 62, ""]
-    for i, p in enumerate(passwords, 1):
-        lines.append(f"  {i:>3}.  {p}")
-    lines += ["", "-" * 62, "  GAMBLOCK — gamblock.xyz"]
-    PASSWORDS_FILE.write_text("\n".join(lines), encoding="utf-8")
-
-    print("\n" + "=" * 62)
-    print("  BLOCKER ACTIVE")
-    print("=" * 62)
-    print(f"\n  Blocked {len(sites)} domains + all subdomains.")
-    print(f"  HTTPS  : {'seamless — CA installed' if ca_ok else 'cert warning (click Advanced > Proceed)'}")
-    print(f"\n  Passwords saved to:\n    {PASSWORDS_FILE}")
-    print("\n  Give the password file to someone you trust, then delete it.")
-    input("\nPress Enter to exit...")
-
-# ─── Add site ─────────────────────────────────────────────────────────────────
-
-def cmd_add():
-    print("=" * 62)
-    print("  SITE BLOCKER — ADD SITE")
-    print("=" * 62)
-    print("\n  Enter the domain you want to block (e.g. newcasino.com).")
-    print("  Once added, it cannot be removed without the 100 passwords.\n")
-
-    raw    = input("  Domain: ").strip().lower()
-    domain = raw.replace("https://", "").replace("http://", "").split("/")[0].strip(".")
-
-    if not domain or "." not in domain:
-        print("  Invalid domain.")
-        input("\nPress Enter to exit...")
-        return
-
-    if is_blocked():
-        config = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-        if domain in config["sites"]:
-            print(f"  {domain} is already blocked.")
-            input("\nPress Enter to exit...")
+    def _submit(self):
+        raw    = self._e.get().strip().lower()
+        domain = raw.replace("https://", "").replace("http://", "").split("/")[0].strip(".")
+        if not domain or "." not in domain:
+            messagebox.showerror("Invalid", "Enter a valid domain (e.g. casino.com)", parent=self)
             return
-
-        # Update config
-        config["sites"].append(domain)
-        CONFIG_FILE.write_text(json.dumps(config, indent=2), encoding="utf-8")
-
-        # Re-write hosts block with new site
-        _remove_hosts_block()
-        _write_hosts_block(config["sites"])
-
-        print(f"\n  Blocked: {domain}")
-        print(f"  Also blocked: www.{domain} and all subdomains (*.{domain})")
-        print("  Takes effect immediately.")
-    else:
-        # Save to user_sites.txt for next activation
-        existing = []
-        if USER_SITES_FILE.exists():
-            existing = [s.strip().lower() for s in USER_SITES_FILE.read_text().splitlines()]
-        if domain in existing:
-            print(f"  {domain} is already in your list.")
+        if is_blocked():
+            config = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            if domain in config["sites"]:
+                messagebox.showinfo("Already blocked", f"{domain} is already blocked.", parent=self)
+                self.destroy(); return
+            config["sites"].append(domain)
+            CONFIG_FILE.write_text(json.dumps(config, indent=2), encoding="utf-8")
+            _remove_hosts_block()
+            _write_hosts_block(config["sites"])
+            messagebox.showinfo("Blocked", f"{domain} is now blocked.\nAll subdomains are covered.", parent=self)
         else:
-            with open(USER_SITES_FILE, "a", encoding="utf-8") as f:
-                f.write(f"{domain}\n")
-            print(f"\n  Saved: {domain}")
-            print("  It will be blocked when you activate the blocker.")
-
-    input("\nPress Enter to exit...")
-
-# ─── Unblock (CLI) ────────────────────────────────────────────────────────────
-
-def cmd_unblock():
-    if not is_blocked():
-        print("  [INFO] Blocker is not active.")
-        input("\nPress Enter to exit...")
-        return
-
-    config = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-    hashed = config["hashed_passwords"]
-
-    print("=" * 62)
-    print("  SITE BLOCKER — UNBLOCK")
-    print("=" * 62)
-    print(f"\n  Enter all {len(hashed)} passwords in order. No shortcuts.\n")
-    if input("  Type YES to begin: ").strip() != "YES":
-        print("  Aborted.")
-        input("\nPress Enter to exit...")
-        return
-
-    print()
-    for i, expected in enumerate(hashed, 1):
-        while True:
-            try:
-                pwd = input(f"  Password {i:>3}/{len(hashed)} : ").strip()
-            except (KeyboardInterrupt, EOFError):
-                print("\n\n  Aborted. Sites remain blocked.")
-                input("\nPress Enter to exit...")
-                return
-            if hash_password(pwd) == expected:
-                left = len(hashed) - i
-                print(f"             Correct.{f'  {left} left.' if left else ''}\n")
-                break
+            existing = []
+            if USER_SITES_FILE.exists():
+                existing = [s.strip().lower() for s in USER_SITES_FILE.read_text().splitlines()]
+            if domain in existing:
+                messagebox.showinfo("Already saved", f"{domain} is already in your list.", parent=self)
             else:
-                print("             Wrong. Try again.\n")
+                with open(USER_SITES_FILE, "a", encoding="utf-8") as f:
+                    f.write(f"{domain}\n")
+                messagebox.showinfo("Saved", f"{domain} saved.\nIt will be blocked on next activation.", parent=self)
+        self.destroy()
 
-    print("  Removing hosts entries...")
-    _remove_hosts_block()
-    print("  Restoring DNS...")
-    restore_dns()
-    remove_dns_guard()
-    print("  Restoring browser proxy settings...")
-    unblock_browser_proxy()
-    print("  Stopping server...")
-    stop_task()
-    remove_task()
-    print("  Uninstalling CA...")
-    uninstall_ca()
-    CONFIG_FILE.unlink(missing_ok=True)
-    for f in [CA_CERT_FILE, CA_KEY_FILE, SITE_CERT_FILE, SITE_KEY_FILE]:
-        f.unlink(missing_ok=True)
 
-    print("\n" + "=" * 62)
-    print("  UNBLOCKED")
-    print("=" * 62)
-    print("\n  All sites unblocked. DNS restored.")
-    input("\nPress Enter to exit...")
+class StatusWindow(_Modal):
+    def __init__(self, parent):
+        super().__init__(parent, "Status — GAMBLOCK", 400, 280)
+        active = is_blocked()
+        ctk.CTkLabel(self, text=("●  ACTIVE" if active else "●  INACTIVE"),
+                     font=ctk.CTkFont(family=_FONT, size=20, weight="bold"),
+                     text_color=_GREEN if active else _RED).pack(pady=(28, 16))
+        frame = ctk.CTkFrame(self, fg_color=_CARD, corner_radius=10)
+        frame.pack(fill="x", padx=24)
+        if active:
+            config = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            rows = [("Sites blocked", str(len(config["sites"]))),
+                    ("Passwords to unlock", "100"),
+                    ("TLS cert", "present" if SITE_CERT_FILE.exists() else "missing"),
+                    ("Server", "running — auto-starts on boot")]
+        else:
+            all_s = _all_sites()
+            rows = [("Built-in sites", str(len(GAMBLING_SITES))),
+                    ("User-added sites", str(len(all_s) - len(GAMBLING_SITES))),
+                    ("Total on activate", str(len(all_s)))]
+        for k, v in rows:
+            row = ctk.CTkFrame(frame, fg_color="transparent")
+            row.pack(fill="x", padx=16, pady=5)
+            ctk.CTkLabel(row, text=k, font=ctk.CTkFont(family=_FONT, size=12),
+                         text_color=_MUTED, width=160, anchor="w").pack(side="left")
+            ctk.CTkLabel(row, text=v, font=ctk.CTkFont(family=_FONT, size=12, weight="bold"),
+                         text_color=_WHITE, anchor="w").pack(side="left")
+        ctk.CTkButton(self, text="Close", width=160, height=36,
+                       fg_color=_CARD, hover_color=_BORDER,
+                       border_width=1, border_color=_BORDER,
+                       font=ctk.CTkFont(family=_FONT, size=12),
+                       command=self.destroy).pack(pady=20)
 
-# ─── Status ───────────────────────────────────────────────────────────────────
 
-def cmd_status():
-    print("=" * 62)
-    print("  SITE BLOCKER — STATUS")
-    print("=" * 62)
-    if is_blocked():
-        config = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-        print(f"\n  Status     : ACTIVE")
-        print(f"  Domains    : {len(config['sites'])} sites (+ www. + all subdomains via DNS)")
-        print(f"  Passwords  : {len(config['hashed_passwords'])} required to unblock")
-        print(f"  TLS cert   : {'present' if SITE_CERT_FILE.exists() else 'missing'}")
-    else:
-        all_s = _all_sites()
-        print(f"\n  Status          : INACTIVE")
-        print(f"  Built-in sites  : {len(GAMBLING_SITES)}")
-        print(f"  User-added sites: {len(all_s) - len(GAMBLING_SITES)}")
-        print(f"  Total on activate: {len(all_s)}")
-    input("\nPress Enter to exit...")
+class UnblockWindow(_Modal):
+    def __init__(self, parent):
+        super().__init__(parent, "Unblock — GAMBLOCK", 480, 320)
+        self._par    = parent
+        self._config = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        self._hashed = self._config["hashed_passwords"]
+        self._idx    = 0
+        self._build()
 
-# ─── Main ─────────────────────────────────────────────────────────────────────
+    def _build(self):
+        ctk.CTkLabel(self, text="🔓  Unblock GAMBLOCK",
+                     font=ctk.CTkFont(family=_FONT, size=16, weight="bold"),
+                     text_color=_WHITE).pack(pady=(24, 4))
+        self._prog_lbl = ctk.CTkLabel(self, text=f"Password 1 of {len(self._hashed)}",
+                                       font=ctk.CTkFont(family=_FONT, size=12), text_color=_MUTED)
+        self._prog_lbl.pack()
+        self._bar = ctk.CTkProgressBar(self, width=400, height=6,
+                                        fg_color=_CARD, progress_color=_RED)
+        self._bar.pack(pady=12)
+        self._bar.set(0)
+        self._entry = ctk.CTkEntry(self, width=400, height=44,
+                                    placeholder_text="Type password here — no copy/paste",
+                                    font=ctk.CTkFont(family=_FONT, size=13),
+                                    fg_color=_CARD, border_color=_BORDER)
+        self._entry.pack()
+        self._entry.focus()
+        _no_paste(self._entry)
+        self._entry.bind("<Return>", lambda _: self._check())
+        self._fb = ctk.CTkLabel(self, text="", font=ctk.CTkFont(family=_FONT, size=12),
+                                 text_color=_MUTED)
+        self._fb.pack(pady=8)
+        row = ctk.CTkFrame(self, fg_color="transparent")
+        row.pack()
+        ctk.CTkButton(row, text="Submit", width=190, height=40,
+                       font=ctk.CTkFont(family=_FONT, size=13, weight="bold"),
+                       fg_color=_RED, hover_color=_RED_H,
+                       command=self._check).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(row, text="Cancel", width=190, height=40,
+                       font=ctk.CTkFont(family=_FONT, size=13),
+                       fg_color=_CARD, hover_color=_BORDER,
+                       border_width=1, border_color=_BORDER,
+                       command=self.destroy).pack(side="left")
+
+    def _check(self):
+        pwd = self._entry.get().strip()
+        if hash_password(pwd) == self._hashed[self._idx]:
+            self._idx += 1
+            self._entry.delete(0, "end")
+            self._bar.set(self._idx / len(self._hashed))
+            if self._idx == len(self._hashed):
+                self._fb.configure(text="All correct — unblocking...", text_color=_GREEN)
+                self.after(400, self._do_unblock)
+            else:
+                left = len(self._hashed) - self._idx
+                self._prog_lbl.configure(text=f"Password {self._idx + 1} of {len(self._hashed)}")
+                self._fb.configure(text=f"✓ Correct — {left} remaining", text_color=_GREEN)
+        else:
+            self._fb.configure(text="✗ Wrong — try again", text_color=_RED)
+
+    def _do_unblock(self):
+        def run():
+            _remove_hosts_block()
+            restore_dns()
+            remove_dns_guard()
+            unblock_browser_proxy()
+            stop_task()
+            remove_task()
+            uninstall_ca()
+            CONFIG_FILE.unlink(missing_ok=True)
+            for f in [CA_CERT_FILE, CA_KEY_FILE, SITE_CERT_FILE, SITE_KEY_FILE]:
+                f.unlink(missing_ok=True)
+            self.after(0, self._done)
+        threading.Thread(target=run, daemon=True).start()
+
+    def _done(self):
+        messagebox.showinfo("Unblocked", "All sites unblocked. DNS restored.", parent=self)
+        self.destroy()
+        if hasattr(self._par, "_refresh"):
+            self._par._refresh()
+
+
+class ActivateWindow(_Modal):
+    _STEPS = [
+        "Adding hosts entries…",
+        "Generating 100 passwords…",
+        "Generating TLS certificates…",
+        "Installing CA certificate…",
+        "Registering startup task…",
+        "Configuring DNS…",
+        "Installing DNS guard…",
+        "Blocking browser extensions…",
+        "Starting server…",
+    ]
+
+    def __init__(self, parent):
+        super().__init__(parent, "Activating — GAMBLOCK", 480, 260)
+        self._par = parent
+        ctk.CTkLabel(self, text="Activating GAMBLOCK…",
+                     font=ctk.CTkFont(family=_FONT, size=16, weight="bold"),
+                     text_color=_WHITE).pack(pady=(30, 16))
+        self._lbl = ctk.CTkLabel(self, text="Starting…",
+                                  font=ctk.CTkFont(family=_FONT, size=12), text_color=_MUTED)
+        self._lbl.pack()
+        self._bar = ctk.CTkProgressBar(self, width=400, height=8,
+                                        fg_color=_CARD, progress_color=_RED)
+        self._bar.pack(pady=14)
+        self._bar.set(0)
+        self._sub = ctk.CTkLabel(self, text="",
+                                  font=ctk.CTkFont(family=_FONT, size=11), text_color=_MUTED)
+        self._sub.pack()
+        self.after(300, self._run)
+
+    def _step(self, i, sub=""):
+        self._bar.set(i / len(self._STEPS))
+        if i < len(self._STEPS):
+            self._lbl.configure(text=self._STEPS[i])
+        self._sub.configure(text=sub)
+        self.update()
+
+    def _run(self):
+        def go():
+            sites = _all_sites()
+            self.after(0, self._step, 0)
+            try:
+                _write_hosts_block(sites)
+            except PermissionError:
+                self.after(0, lambda: messagebox.showerror(
+                    "Error", "Cannot write hosts file.\nRun GAMBLOCK as Administrator.", parent=self))
+                self.after(0, self.destroy); return
+
+            self.after(0, self._step, 1)
+            passwords = generate_passwords()
+            config = {"hashed_passwords": [hash_password(p) for p in passwords], "sites": sites}
+            CONFIG_FILE.write_text(json.dumps(config, indent=2), encoding="utf-8")
+
+            self.after(0, self._step, 2)
+            certs_ok = generate_certs(sites)
+
+            self.after(0, self._step, 3)
+            ca_ok = install_ca() if certs_ok else False
+
+            self.after(0, self._step, 4)
+            install_task()
+
+            self.after(0, self._step, 5)
+            configure_dns()
+
+            self.after(0, self._step, 6)
+            install_dns_guard()
+
+            self.after(0, self._step, 7)
+            block_browser_proxy()
+
+            self.after(0, self._step, 8)
+            start_task()
+
+            lines = ["=" * 62, "  GAMBLOCK — UNBLOCK PASSWORDS", "=" * 62, "",
+                     "  Enter ALL 100 passwords in order to unblock.",
+                     "  Give this to a trusted person, or print & delete this file.", "",
+                     "-" * 62, ""]
+            for i, p in enumerate(passwords, 1):
+                lines.append(f"  {i:>3}.  {p}")
+            lines += ["", "-" * 62, "  GAMBLOCK — gamblock.xyz"]
+            PASSWORDS_FILE.write_text("\n".join(lines), encoding="utf-8")
+
+            self.after(0, self._finish, len(sites))
+        threading.Thread(target=go, daemon=True).start()
+
+    def _finish(self, n):
+        self._bar.set(1.0)
+        self._lbl.configure(text="Active!", text_color=_GREEN)
+        self._sub.configure(text=f"Blocked {n} sites. Passwords saved to Desktop.", text_color=_GREEN)
+        self.update()
+        self.after(1000, lambda: self._done())
+
+    def _done(self):
+        messagebox.showinfo(
+            "GAMBLOCK Active",
+            f"Protection is now ON.\n\n"
+            f"100 passwords saved to:\n{PASSWORDS_FILE}\n\n"
+            f"Give this file to a trusted person, then delete it from your PC.",
+            parent=self)
+        self.destroy()
+        if hasattr(self._par, "_refresh"):
+            self._par._refresh()
+
+
+class GAMBLOCKApp(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+        self.title("GAMBLOCK")
+        self.geometry("480x390")
+        self.resizable(False, False)
+        self.configure(fg_color=_BG)
+        try:
+            ico = INSTALL_DIR / "gamblock.ico"
+            if ico.exists():
+                self.after(200, lambda: self.iconbitmap(str(ico)))
+        except Exception:
+            pass
+        self._build()
+        self._refresh()
+
+    def _build(self):
+        # Header
+        hdr = ctk.CTkFrame(self, fg_color=_CARD, corner_radius=0, height=54)
+        hdr.pack(fill="x")
+        hdr.pack_propagate(False)
+        ctk.CTkLabel(hdr, text="GAMBLOCK",
+                     font=ctk.CTkFont(family=_FONT, size=19, weight="bold"),
+                     text_color=_WHITE).pack(side="left", padx=20)
+        ctk.CTkLabel(hdr, text="gamblock.xyz",
+                     font=ctk.CTkFont(family=_FONT, size=11),
+                     text_color=_MUTED).pack(side="right", padx=20)
+
+        # Status card
+        sc = ctk.CTkFrame(self, fg_color=_CARD, corner_radius=12)
+        sc.pack(fill="x", padx=20, pady=(18, 0))
+        inner = ctk.CTkFrame(sc, fg_color="transparent")
+        inner.pack(pady=14, padx=20, anchor="w")
+        self._dot = ctk.CTkLabel(inner, text="●", font=ctk.CTkFont(size=18), text_color=_MUTED)
+        self._dot.pack(side="left", padx=(0, 12))
+        col = ctk.CTkFrame(inner, fg_color="transparent")
+        col.pack(side="left")
+        self._stitle = ctk.CTkLabel(col, text="CHECKING",
+                                     font=ctk.CTkFont(family=_FONT, size=15, weight="bold"),
+                                     text_color=_MUTED)
+        self._stitle.pack(anchor="w")
+        self._ssub = ctk.CTkLabel(col, text="",
+                                   font=ctk.CTkFont(family=_FONT, size=11), text_color=_MUTED)
+        self._ssub.pack(anchor="w")
+
+        # Button grid
+        g = ctk.CTkFrame(self, fg_color="transparent")
+        g.pack(padx=20, pady=18, fill="x")
+        g.columnconfigure((0, 1), weight=1)
+
+        self._btn_act = self._mkbtn(g, "🛡  Activate",  self._activate, 0, 0, True)
+        self._mkbtn(g, "＋  Add Site",  self._add_site, 0, 1)
+        self._mkbtn(g, "🔓  Unblock",   self._unblock,  1, 0)
+        self._mkbtn(g, "ℹ   Status",    self._status,   1, 1)
+
+    def _mkbtn(self, parent, text, cmd, row, col, primary=False):
+        b = ctk.CTkButton(
+            parent, text=text,
+            font=ctk.CTkFont(family=_FONT, size=13, weight="bold"),
+            height=58, fg_color=_RED if primary else _CARD,
+            hover_color=_RED_H if primary else _BORDER,
+            text_color=_WHITE,
+            border_width=0 if primary else 1, border_color=_BORDER,
+            corner_radius=10, command=cmd)
+        b.grid(row=row, column=col,
+               padx=(0, 6) if col == 0 else (6, 0),
+               pady=(0, 8), sticky="ew")
+        return b
+
+    def _refresh(self):
+        active = is_blocked()
+        if active:
+            self._dot.configure(text_color=_GREEN)
+            self._stitle.configure(text="ACTIVE", text_color=_GREEN)
+            self._ssub.configure(text="Casino protection is on")
+            self._btn_act.configure(state="disabled", fg_color=_CARD,
+                                     text_color=_MUTED, border_width=1, border_color=_BORDER)
+        else:
+            self._dot.configure(text_color=_RED)
+            self._stitle.configure(text="INACTIVE", text_color=_RED)
+            self._ssub.configure(text="Click Activate to enable protection")
+            self._btn_act.configure(state="normal", fg_color=_RED,
+                                     text_color=_WHITE, border_width=0)
+
+    def _activate(self):
+        if is_blocked():
+            messagebox.showinfo("Already active", "GAMBLOCK is already active.", parent=self)
+            return
+        if not messagebox.askyesno(
+                "Activate GAMBLOCK",
+                f"This will block {len(_all_sites())} casino sites and all subdomains.\n\n"
+                "100 passwords will be saved to your Desktop.\n"
+                "Give them to a trusted person, then delete the file.\n\nContinue?",
+                parent=self):
+            return
+        ActivateWindow(self)
+
+    def _add_site(self):
+        AddSiteDialog(self)
+
+    def _unblock(self):
+        if not is_blocked():
+            messagebox.showinfo("Not active", "GAMBLOCK is not currently active.", parent=self)
+            return
+        UnblockWindow(self)
+
+    def _status(self):
+        StatusWindow(self)
+
+
+# ─── Entry point ──────────────────────────────────────────────────────────────
 
 def main():
-    require_admin()
-
-    if len(sys.argv) > 1:
-        {
-            "block":   cmd_block,
-            "unblock": cmd_unblock,
-            "add":     cmd_add,
-            "status":  cmd_status,
-        }.get(sys.argv[1].lower(), lambda: print(f"Unknown command: {sys.argv[1]}"))()
-        return
-
-    print("=" * 62)
-    print("  SITE BLOCKER")
-    print("=" * 62)
-    print(f"\n  Status: {'ACTIVE — sites are BLOCKED' if is_blocked() else 'INACTIVE'}\n")
-    print("  1. Activate blocker")
-    print("  2. Unblock (requires 100 passwords)")
-    print("  3. Add a site to block list")
-    print("  4. Status")
-    print("  5. Exit")
-    print()
-    match input("  Choose [1-5]: ").strip():
-        case "1": cmd_block()
-        case "2": cmd_unblock()
-        case "3": cmd_add()
-        case "4": cmd_status()
-        case _:   print("  Goodbye.")
+    if not is_admin():
+        # Re-launch elevated
+        ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", sys.executable,
+            " ".join(f'"{a}"' for a in sys.argv), None, 1)
+        sys.exit(0)
+    app = GAMBLOCKApp()
+    app.mainloop()
 
 if __name__ == "__main__":
     main()
