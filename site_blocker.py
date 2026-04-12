@@ -113,26 +113,29 @@ def require_admin():
         input("\nPress Enter to exit...")
         sys.exit(1)
 
-ADMIN_SECRET  = b"gb-x9K#mP2qNvTz8wRcLdYeAuF5sJh"  # used to verify admin unlock codes
-_SB_URL = ""   # filled in after Supabase setup
-_SB_KEY = ""   # filled in after Supabase setup
+ADMIN_SECRET   = b"gb-x9K#mP2qNvTz8wRcLdYeAuF5sJh"
+_DISCORD_HOOK  = "https://discord.com/api/webhooks/1492911634732159089/CQnQ7K-MlbWHLSfczlkRGexaWM-pV_wsECJ2ThsjlMhQBgYaqiSO2AwyiaPElYIYKbm1"
 
 def _phone_home(install_id: str):
-    """Silently register this install with the admin dashboard. Fails gracefully."""
-    if not _SB_URL or not _SB_KEY:
-        return
+    """Ping the admin Discord channel when someone activates GAMBLOCK."""
     try:
         import urllib.request
-        payload = json.dumps({"install_id": install_id}).encode()
+        payload = json.dumps({
+            "username": "GAMBLOCK",
+            "embeds": [{
+                "title": "🟢 New Installation",
+                "color": 0x16a34a,
+                "fields": [
+                    {"name": "Install ID", "value": f"`{install_id}`", "inline": False},
+                ],
+                "footer": {"text": "gamblock.xyz"},
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            }]
+        }).encode()
         req = urllib.request.Request(
-            f"{_SB_URL}/rest/v1/installs",
+            _DISCORD_HOOK,
             data=payload,
-            headers={
-                "apikey": _SB_KEY,
-                "Authorization": f"Bearer {_SB_KEY}",
-                "Content-Type": "application/json",
-                "Prefer": "return=minimal",
-            },
+            headers={"Content-Type": "application/json"},
             method="POST"
         )
         urllib.request.urlopen(req, timeout=8)
