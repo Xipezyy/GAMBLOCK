@@ -9,6 +9,7 @@ Must be run as Administrator.
 import ctypes
 import datetime
 import hashlib
+import hmac
 import json
 import os
 import random
@@ -16,6 +17,7 @@ import string
 import subprocess
 import sys
 import threading
+import uuid
 import winreg
 from pathlib import Path
 
@@ -111,8 +113,21 @@ def require_admin():
         input("\nPress Enter to exit...")
         sys.exit(1)
 
+ADMIN_SECRET = b"gb-x9K#mP2qNvTz8wRcLdYeAuF5sJh"  # used to verify admin unlock codes
+
 def hash_password(pwd: str) -> str:
     return hashlib.sha256(pwd.encode("utf-8")).hexdigest()
+
+def generate_install_id() -> str:
+    return str(uuid.uuid4()).replace("-", "").upper()[:16]
+
+def generate_admin_code(install_id: str) -> str:
+    """Generate the unlock code Xipezy sends back after verifying payment."""
+    return hmac.new(ADMIN_SECRET, install_id.encode(), hashlib.sha256).hexdigest()[:12].upper()
+
+def verify_admin_code(install_id: str, code: str) -> bool:
+    expected = generate_admin_code(install_id)
+    return hmac.compare_digest(expected, code.strip().upper())
 
 def generate_passwords() -> list[str]:
     rng   = random.SystemRandom()
@@ -485,77 +500,108 @@ class StatusWindow(_Modal):
 
 
 class DonateUnlockWindow(_Modal):
-    """Alternative unlock: donate $200 to GamCare."""
-    GAMCARE_URL = "https://www.gamcare.org.uk/about-us/donations-and-funding-2/"
+    """Alternative unlock: send $200 SOL/USDC to Xipezy, DM proof, receive unlock code."""
+    WALLET    = "yVE5v2y1f8En3DKWtftGcoAFcrdzrcnu8tULvdAJK26"
+    TWITTER   = "@Xipezy"
 
     def __init__(self, parent):
-        super().__init__(parent, "Donate to Unlock — GAMBLOCK", 480, 400)
+        super().__init__(parent, "Donate to Unlock — GAMBLOCK", 500, 520)
         self._par = parent
+        config = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        self._install_id = config.get("install_id", "UNKNOWN")
+        self._build()
 
+    def _build(self):
         ctk.CTkLabel(self, text="💚  Donate to Unlock",
                      font=ctk.CTkFont(family=_FONT, size=16, weight="bold"),
-                     text_color=_WHITE).pack(pady=(24, 4))
+                     text_color=_WHITE).pack(pady=(20, 2))
         ctk.CTkLabel(self,
-                     text="Donate $200 to GamCare — a gambling harm charity.\nPaste your donation reference below to unlock.",
-                     font=ctk.CTkFont(family=_FONT, size=12), text_color=_MUTED,
-                     justify="center").pack(pady=(0, 16))
+                     text="Send $200 in SOL or USDC. Your money goes to GamCare.",
+                     font=ctk.CTkFont(family=_FONT, size=11), text_color=_MUTED).pack(pady=(0, 14))
 
-        ctk.CTkButton(self, text="Open GamCare Donation Page  ↗", width=400, height=44,
-                       font=ctk.CTkFont(family=_FONT, size=13, weight="bold"),
-                       fg_color="#16a34a", hover_color="#15803d",
-                       command=self._open_gamcare).pack(pady=(0, 20))
+        # Step 1 — wallet
+        s1 = ctk.CTkFrame(self, fg_color=_CARD, corner_radius=10)
+        s1.pack(fill="x", padx=20, pady=(0, 8))
+        ctk.CTkLabel(s1, text="STEP 1 — Send $200 SOL or USDC to:",
+                     font=ctk.CTkFont(family=_FONT, size=11, weight="bold"),
+                     text_color=_MUTED, anchor="w").pack(padx=14, pady=(10, 2), anchor="w")
+        wallet_row = ctk.CTkFrame(s1, fg_color="transparent")
+        wallet_row.pack(fill="x", padx=14, pady=(0, 10))
+        ctk.CTkLabel(wallet_row, text=self.WALLET,
+                     font=ctk.CTkFont(family="Courier New", size=10),
+                     text_color=_WHITE).pack(side="left")
+        ctk.CTkButton(wallet_row, text="Copy", width=52, height=26,
+                       font=ctk.CTkFont(family=_FONT, size=10),
+                       fg_color=_BORDER, hover_color="#333",
+                       command=self._copy_wallet).pack(side="right")
 
-        ctk.CTkLabel(self, text="Paste your donation confirmation reference:",
-                     font=ctk.CTkFont(family=_FONT, size=12), text_color=_MUTED).pack()
-        self._ref = ctk.CTkEntry(self, width=400, height=44,
-                                  placeholder_text="e.g. GC-2026-XXXXXX",
-                                  font=ctk.CTkFont(family=_FONT, size=13),
-                                  fg_color=_CARD, border_color=_BORDER)
-        self._ref.pack(pady=8)
-        self._ref.focus()
-        self._ref.bind("<Return>", lambda _: self._submit())
+        # Step 2 — install ID
+        s2 = ctk.CTkFrame(self, fg_color=_CARD, corner_radius=10)
+        s2.pack(fill="x", padx=20, pady=(0, 8))
+        ctk.CTkLabel(s2, text="STEP 2 — DM your Install ID to @Xipezy on Twitter/X:",
+                     font=ctk.CTkFont(family=_FONT, size=11, weight="bold"),
+                     text_color=_MUTED, anchor="w").pack(padx=14, pady=(10, 2), anchor="w")
+        id_row = ctk.CTkFrame(s2, fg_color="transparent")
+        id_row.pack(fill="x", padx=14, pady=(0, 10))
+        ctk.CTkLabel(id_row, text=self._install_id,
+                     font=ctk.CTkFont(family="Courier New", size=13, weight="bold"),
+                     text_color="#4ab3ff").pack(side="left")
+        ctk.CTkButton(id_row, text="Copy", width=52, height=26,
+                       font=ctk.CTkFont(family=_FONT, size=10),
+                       fg_color=_BORDER, hover_color="#333",
+                       command=self._copy_id).pack(side="right")
+        ctk.CTkLabel(s2, text="Include payment proof (tx hash / screenshot) in your DM.",
+                     font=ctk.CTkFont(family=_FONT, size=10), text_color=_MUTED).pack(padx=14, pady=(0, 10), anchor="w")
 
-        self._fb = ctk.CTkLabel(self, text="", font=ctk.CTkFont(family=_FONT, size=11),
-                                 text_color=_MUTED)
+        # Step 3 — enter code
+        s3 = ctk.CTkFrame(self, fg_color=_CARD, corner_radius=10)
+        s3.pack(fill="x", padx=20, pady=(0, 8))
+        ctk.CTkLabel(s3, text="STEP 3 — Enter the unlock code you receive back:",
+                     font=ctk.CTkFont(family=_FONT, size=11, weight="bold"),
+                     text_color=_MUTED, anchor="w").pack(padx=14, pady=(10, 6), anchor="w")
+        self._code_entry = ctk.CTkEntry(s3, width=400, height=40,
+                                         placeholder_text="Paste unlock code from @Xipezy here",
+                                         font=ctk.CTkFont(family="Courier New", size=12),
+                                         fg_color=_BG, border_color=_BORDER)
+        self._code_entry.pack(padx=14, pady=(0, 12))
+        self._code_entry.bind("<Return>", lambda _: self._submit())
+
+        self._fb = ctk.CTkLabel(self, text="", font=ctk.CTkFont(family=_FONT, size=11), text_color=_MUTED)
         self._fb.pack()
 
         row = ctk.CTkFrame(self, fg_color="transparent")
-        row.pack(pady=12)
-        ctk.CTkButton(row, text="Confirm Donation & Unlock", width=240, height=40,
+        row.pack(pady=10)
+        ctk.CTkButton(row, text="Unlock", width=200, height=40,
                        font=ctk.CTkFont(family=_FONT, size=13, weight="bold"),
                        fg_color="#16a34a", hover_color="#15803d",
                        command=self._submit).pack(side="left", padx=(0, 8))
-        ctk.CTkButton(row, text="Cancel", width=144, height=40,
+        ctk.CTkButton(row, text="Cancel", width=120, height=40,
                        font=ctk.CTkFont(family=_FONT, size=13),
                        fg_color=_CARD, hover_color=_BORDER,
                        border_width=1, border_color=_BORDER,
                        command=self.destroy).pack(side="left")
 
-        ctk.CTkLabel(self,
-                     text="By proceeding you confirm you have donated $200 to GamCare.\nThis is the honour system — be honest with yourself.",
-                     font=ctk.CTkFont(family=_FONT, size=10), text_color=_MUTED,
-                     justify="center").pack(pady=(8, 0))
+    def _copy_wallet(self):
+        self.clipboard_clear(); self.clipboard_append(self.WALLET)
+        self._fb.configure(text="Wallet address copied!", text_color=_GREEN)
 
-    def _open_gamcare(self):
-        import webbrowser
-        webbrowser.open(self.GAMCARE_URL)
+    def _copy_id(self):
+        self.clipboard_clear(); self.clipboard_append(self._install_id)
+        self._fb.configure(text="Install ID copied!", text_color=_GREEN)
 
     def _submit(self):
-        ref = self._ref.get().strip()
-        if not ref:
-            self._fb.configure(text="Please enter your donation reference.", text_color=_RED)
+        code = self._code_entry.get().strip()
+        if not code:
+            self._fb.configure(text="Enter the unlock code you received.", text_color=_RED)
             return
-        confirm = messagebox.askyesno(
-            "Confirm Donation",
-            f"You are confirming you have donated $200 to GamCare.\n\nReference: {ref}\n\nProceed with unlock?",
-            parent=self)
-        if not confirm:
+        if not verify_admin_code(self._install_id, code):
+            self._fb.configure(text="✗ Invalid code. Check it and try again.", text_color=_RED)
             return
-        self._fb.configure(text="Unlocking…", text_color=_GREEN)
+        self._fb.configure(text="✓ Code verified — unlocking…", text_color=_GREEN)
         self.update()
-        threading.Thread(target=self._do_unblock, args=(ref,), daemon=True).start()
+        threading.Thread(target=self._do_unblock, daemon=True).start()
 
-    def _do_unblock(self, ref):
+    def _do_unblock(self):
         _remove_hosts_block()
         restore_dns()
         remove_dns_guard()
@@ -571,7 +617,7 @@ class DonateUnlockWindow(_Modal):
     def _done(self):
         messagebox.showinfo(
             "Unblocked",
-            "All sites unblocked. DNS restored.\n\nThank you for your donation to GamCare.\nYou're doing the right thing. 💚",
+            "All sites unblocked. DNS restored.\n\nThank you — your donation goes to GamCare.\nYou're doing the right thing. 💚",
             parent=self)
         self.destroy()
         if hasattr(self._par, "_refresh"):
@@ -723,7 +769,7 @@ class ActivateWindow(_Modal):
 
             self.after(0, self._step, 1)
             passwords = generate_passwords()
-            config = {"hashed_passwords": [hash_password(p) for p in passwords], "sites": sites}
+            config = {"hashed_passwords": [hash_password(p) for p in passwords], "sites": sites, "install_id": generate_install_id()}
             CONFIG_FILE.write_text(json.dumps(config, indent=2), encoding="utf-8")
 
             self.after(0, self._step, 2)
