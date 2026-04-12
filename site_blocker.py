@@ -857,7 +857,7 @@ class GAMBLOCKApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("GAMBLOCK")
-        self.geometry("480x390")
+        self.geometry("480x430")
         self.resizable(False, False)
         self.configure(fg_color=_BG)
         try:
@@ -908,6 +908,14 @@ class GAMBLOCKApp(ctk.CTk):
         self._mkbtn(g, "🔓  Unblock",   self._unblock,  1, 0)
         self._mkbtn(g, "ℹ   Status",    self._status,   1, 1)
 
+        # Community & footer
+        ctk.CTkButton(self, text="💬  Community Chat — Join Discord",
+                       width=440, height=36,
+                       font=ctk.CTkFont(family=_FONT, size=12),
+                       fg_color="#5865F2", hover_color="#4752c4",
+                       text_color=_WHITE, corner_radius=8,
+                       command=self._open_discord).pack(padx=20, pady=(0, 10))
+
     def _mkbtn(self, parent, text, cmd, row, col, primary=False):
         b = ctk.CTkButton(
             parent, text=text,
@@ -936,6 +944,10 @@ class GAMBLOCKApp(ctk.CTk):
             self._ssub.configure(text="Click Activate to enable protection")
             self._btn_act.configure(state="normal", fg_color=_RED,
                                      text_color=_WHITE, border_width=0)
+
+    def _open_discord(self):
+        import webbrowser
+        webbrowser.open("https://discord.gg/5CkqyYNC")
 
     def _activate(self):
         if is_blocked():
