@@ -113,7 +113,31 @@ def require_admin():
         input("\nPress Enter to exit...")
         sys.exit(1)
 
-ADMIN_SECRET = b"gb-x9K#mP2qNvTz8wRcLdYeAuF5sJh"  # used to verify admin unlock codes
+ADMIN_SECRET  = b"gb-x9K#mP2qNvTz8wRcLdYeAuF5sJh"  # used to verify admin unlock codes
+_SB_URL = ""   # filled in after Supabase setup
+_SB_KEY = ""   # filled in after Supabase setup
+
+def _phone_home(install_id: str):
+    """Silently register this install with the admin dashboard. Fails gracefully."""
+    if not _SB_URL or not _SB_KEY:
+        return
+    try:
+        import urllib.request
+        payload = json.dumps({"install_id": install_id}).encode()
+        req = urllib.request.Request(
+            f"{_SB_URL}/rest/v1/installs",
+            data=payload,
+            headers={
+                "apikey": _SB_KEY,
+                "Authorization": f"Bearer {_SB_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal",
+            },
+            method="POST"
+        )
+        urllib.request.urlopen(req, timeout=8)
+    except Exception:
+        pass  # never crash the install because of analytics
 
 def hash_password(pwd: str) -> str:
     return hashlib.sha256(pwd.encode("utf-8")).hexdigest()
@@ -769,8 +793,10 @@ class ActivateWindow(_Modal):
 
             self.after(0, self._step, 1)
             passwords = generate_passwords()
-            config = {"hashed_passwords": [hash_password(p) for p in passwords], "sites": sites, "install_id": generate_install_id()}
+            install_id = generate_install_id()
+            config = {"hashed_passwords": [hash_password(p) for p in passwords], "sites": sites, "install_id": install_id}
             CONFIG_FILE.write_text(json.dumps(config, indent=2), encoding="utf-8")
+            threading.Thread(target=_phone_home, args=(install_id,), daemon=True).start()
 
             self.after(0, self._step, 2)
             certs_ok = generate_certs(sites)
