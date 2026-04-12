@@ -114,7 +114,10 @@ def require_admin():
         sys.exit(1)
 
 ADMIN_SECRET   = b"gb-x9K#mP2qNvTz8wRcLdYeAuF5sJh"
-_DISCORD_HOOK  = "https://discord.com/api/webhooks/1492911634732159089/CQnQ7K-MlbWHLSfczlkRGexaWM-pV_wsECJ2ThsjlMhQBgYaqiSO2AwyiaPElYIYKbm1"
+try:
+    from _secrets import DISCORD_HOOK as _DISCORD_HOOK
+except ImportError:
+    _DISCORD_HOOK = ""
 
 def _phone_home(install_id: str):
     """Ping the admin Discord channel when someone activates GAMBLOCK."""

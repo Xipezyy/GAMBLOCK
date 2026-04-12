@@ -1,3 +1,7 @@
+# Secrets — never commit
+_secrets.py
+admin_config.json
+
 # Runtime files — never commit these
 config.json
 user_sites.txt
