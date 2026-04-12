@@ -157,6 +157,14 @@ button:hover{{background:#5c0000;border-color:#ff3333;color:#ff8888}}
 <div class="bar-wrap"><div class="bar-fill" style="width:{pct}%"></div></div>
 {body}
 <p class="hint">You blocked this site yourself.<br>You made a promise. Keep it.</p>
+<div style="margin-top:32px;padding:20px 28px;border:1px solid #1a3a1a;border-radius:6px;background:#0a1a0a;text-align:center;max-width:380px">
+  <p style="color:#33ff77;font-size:.85em;font-weight:bold;letter-spacing:2px;margin-bottom:8px">ALTERNATIVE UNLOCK</p>
+  <p style="color:#6b9b6b;font-size:.8em;line-height:1.7;margin-bottom:14px">Donate $200 to GamCare — a gambling harm charity — then enter your reference in the GAMBLOCK app to unlock.</p>
+  <a href="https://www.gamcare.org.uk/about-us/donations-and-funding-2/" target="_blank"
+     style="display:inline-block;padding:10px 24px;background:#16a34a;color:#fff;font-family:'Courier New',monospace;font-size:.85em;font-weight:bold;letter-spacing:2px;border-radius:4px;text-decoration:none">
+    DONATE TO GAMCARE ↗
+  </a>
+</div>
 <script>
 (function(){{
   var input = document.getElementById('pwd');

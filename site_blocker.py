@@ -484,9 +484,103 @@ class StatusWindow(_Modal):
                        command=self.destroy).pack(pady=20)
 
 
+class DonateUnlockWindow(_Modal):
+    """Alternative unlock: donate $200 to GamCare."""
+    GAMCARE_URL = "https://www.gamcare.org.uk/about-us/donations-and-funding-2/"
+
+    def __init__(self, parent):
+        super().__init__(parent, "Donate to Unlock — GAMBLOCK", 480, 400)
+        self._par = parent
+
+        ctk.CTkLabel(self, text="💚  Donate to Unlock",
+                     font=ctk.CTkFont(family=_FONT, size=16, weight="bold"),
+                     text_color=_WHITE).pack(pady=(24, 4))
+        ctk.CTkLabel(self,
+                     text="Donate $200 to GamCare — a gambling harm charity.\nPaste your donation reference below to unlock.",
+                     font=ctk.CTkFont(family=_FONT, size=12), text_color=_MUTED,
+                     justify="center").pack(pady=(0, 16))
+
+        ctk.CTkButton(self, text="Open GamCare Donation Page  ↗", width=400, height=44,
+                       font=ctk.CTkFont(family=_FONT, size=13, weight="bold"),
+                       fg_color="#16a34a", hover_color="#15803d",
+                       command=self._open_gamcare).pack(pady=(0, 20))
+
+        ctk.CTkLabel(self, text="Paste your donation confirmation reference:",
+                     font=ctk.CTkFont(family=_FONT, size=12), text_color=_MUTED).pack()
+        self._ref = ctk.CTkEntry(self, width=400, height=44,
+                                  placeholder_text="e.g. GC-2026-XXXXXX",
+                                  font=ctk.CTkFont(family=_FONT, size=13),
+                                  fg_color=_CARD, border_color=_BORDER)
+        self._ref.pack(pady=8)
+        self._ref.focus()
+        self._ref.bind("<Return>", lambda _: self._submit())
+
+        self._fb = ctk.CTkLabel(self, text="", font=ctk.CTkFont(family=_FONT, size=11),
+                                 text_color=_MUTED)
+        self._fb.pack()
+
+        row = ctk.CTkFrame(self, fg_color="transparent")
+        row.pack(pady=12)
+        ctk.CTkButton(row, text="Confirm Donation & Unlock", width=240, height=40,
+                       font=ctk.CTkFont(family=_FONT, size=13, weight="bold"),
+                       fg_color="#16a34a", hover_color="#15803d",
+                       command=self._submit).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(row, text="Cancel", width=144, height=40,
+                       font=ctk.CTkFont(family=_FONT, size=13),
+                       fg_color=_CARD, hover_color=_BORDER,
+                       border_width=1, border_color=_BORDER,
+                       command=self.destroy).pack(side="left")
+
+        ctk.CTkLabel(self,
+                     text="By proceeding you confirm you have donated $200 to GamCare.\nThis is the honour system — be honest with yourself.",
+                     font=ctk.CTkFont(family=_FONT, size=10), text_color=_MUTED,
+                     justify="center").pack(pady=(8, 0))
+
+    def _open_gamcare(self):
+        import webbrowser
+        webbrowser.open(self.GAMCARE_URL)
+
+    def _submit(self):
+        ref = self._ref.get().strip()
+        if not ref:
+            self._fb.configure(text="Please enter your donation reference.", text_color=_RED)
+            return
+        confirm = messagebox.askyesno(
+            "Confirm Donation",
+            f"You are confirming you have donated $200 to GamCare.\n\nReference: {ref}\n\nProceed with unlock?",
+            parent=self)
+        if not confirm:
+            return
+        self._fb.configure(text="Unlocking…", text_color=_GREEN)
+        self.update()
+        threading.Thread(target=self._do_unblock, args=(ref,), daemon=True).start()
+
+    def _do_unblock(self, ref):
+        _remove_hosts_block()
+        restore_dns()
+        remove_dns_guard()
+        unblock_browser_proxy()
+        stop_task()
+        remove_task()
+        uninstall_ca()
+        CONFIG_FILE.unlink(missing_ok=True)
+        for f in [CA_CERT_FILE, CA_KEY_FILE, SITE_CERT_FILE, SITE_KEY_FILE]:
+            f.unlink(missing_ok=True)
+        self.after(0, self._done)
+
+    def _done(self):
+        messagebox.showinfo(
+            "Unblocked",
+            "All sites unblocked. DNS restored.\n\nThank you for your donation to GamCare.\nYou're doing the right thing. 💚",
+            parent=self)
+        self.destroy()
+        if hasattr(self._par, "_refresh"):
+            self._par._refresh()
+
+
 class UnblockWindow(_Modal):
     def __init__(self, parent):
-        super().__init__(parent, "Unblock — GAMBLOCK", 480, 320)
+        super().__init__(parent, "Unblock — GAMBLOCK", 480, 400)
         self._par    = parent
         self._config = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
         self._hashed = self._config["hashed_passwords"]
@@ -526,6 +620,19 @@ class UnblockWindow(_Modal):
                        fg_color=_CARD, hover_color=_BORDER,
                        border_width=1, border_color=_BORDER,
                        command=self.destroy).pack(side="left")
+
+        # Donate alternative
+        ctk.CTkLabel(self, text="— or —",
+                     font=ctk.CTkFont(family=_FONT, size=11), text_color=_MUTED).pack(pady=(16, 4))
+        ctk.CTkButton(self, text="💚  Donate $200 to GamCare to unlock instead",
+                       width=400, height=38,
+                       font=ctk.CTkFont(family=_FONT, size=12),
+                       fg_color="#16a34a", hover_color="#15803d",
+                       command=self._donate_unlock).pack()
+
+    def _donate_unlock(self):
+        self.destroy()
+        DonateUnlockWindow(self._par)
 
     def _check(self):
         pwd = self._entry.get().strip()
