@@ -48,8 +48,10 @@ Name: "{commondesktop}\GAMBLOCK";      Filename: "{app}\GAMBLOCK.exe"; IconFilen
 Filename: "{app}\GAMBLOCK.exe"; Description: "Launch GAMBLOCK"; Flags: nowait postinstall skipifsilent runascurrentuser
 
 [UninstallRun]
-Filename: "schtasks"; Parameters: "/delete /tn ""SiteBlockerServer"" /f"; Flags: runhidden
-Filename: "certutil"; Parameters: "-delstore Root ""Site Blocker CA"""; Flags: runhidden
+Filename: "schtasks"; Parameters: "/delete /tn ""SiteBlockerServer"" /f"; Flags: runhidden; RunOnceId: "DelTask"
+Filename: "schtasks"; Parameters: "/delete /tn ""GAMBLOCKDNSGuard"" /f"; Flags: runhidden; RunOnceId: "DelDNSGuard"
+Filename: "certutil"; Parameters: "-delstore Root ""Site Blocker CA"""; Flags: runhidden; RunOnceId: "DelCert"
+Filename: "powershell.exe"; Parameters: "-WindowStyle Hidden -Command ""Remove-Item -Path 'HKLM:\SOFTWARE\Policies\Google\Chrome' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'HKCU:\SOFTWARE\Policies\Google\Chrome' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'HKLM:\SOFTWARE\Policies\BraveSoftware\Brave' -Recurse -Force -ErrorAction SilentlyContinue"""; Flags: runhidden; RunOnceId: "DelProxy"
 
 [Code]
 function InitializeSetup(): Boolean;
