@@ -680,7 +680,7 @@
   fetch('https://api.github.com/repos/Xipezyy/GAMBLOCK/releases/latest')
     .then(r => r.json())
     .then(data => {
-      const count = 41 + (data.assets || []).reduce((sum, a) => sum + (a.download_count || 0), 0);
+      const count = 46 + (data.assets || []).reduce((sum, a) => sum + (a.download_count || 0), 0);
       const dlEl      = document.getElementById('dl-count');
       const helpedEl  = document.getElementById('helped-count');
       if (dlEl)     animateCount(dlEl, count);
@@ -689,8 +689,8 @@
     .catch(() => {
       const dlEl     = document.getElementById('dl-count');
       const helpedEl = document.getElementById('helped-count');
-      if (dlEl)     dlEl.textContent     = '41';
-      if (helpedEl) helpedEl.textContent = '41';
+      if (dlEl)     dlEl.textContent     = '46';
+      if (helpedEl) helpedEl.textContent = '46';
     });
 })();
 
